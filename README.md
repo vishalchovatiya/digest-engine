@@ -98,15 +98,43 @@ preview the email before sending.
 ## GitHub Codespaces (free tier)
 
 This repo ships with `.devcontainer/devcontainer.json` so you can develop in
-the browser without installing Python locally. The container is intentionally
-lightweight (Python 3.11 base image, no extra features) to minimise startup
-time and Codespaces compute usage.
+the browser without installing Python locally. The devcontainer only installs
+project dependencies (Python 3.11 + `requirements.txt`) — it deliberately
+does **not** pin a list of VS Code extensions. Your personal extensions,
+settings, and keybindings come from **Settings Sync** on your GitHub / VS
+Code account, so every Codespace you open looks like your own editor.
 
 ### Open the repo in Codespaces
 
 1. On GitHub, click **Code → Codespaces → Create codespace on main**.
 2. Wait ~30–60 s for `postCreateCommand` to install Python dependencies.
-3. VS Code opens in the browser with the Python and YAML extensions pre-installed.
+3. VS Code opens in the browser. Your synced extensions, settings, and
+   keybindings load from your GitHub / VS Code account (see Settings Sync
+   below).
+
+### Load your personal extensions via Settings Sync
+
+GitHub Codespaces cannot force-install a user's Settings Sync extensions
+from a repo config — that list lives on your account, not in this repo.
+Make sure Settings Sync is turned on so it flows into every Codespace:
+
+1. Sign in to VS Code (desktop or web) with the **same GitHub account** you
+   use for Codespaces.
+2. Open the Command Palette (`Ctrl/Cmd+Shift+P`) and run
+   **Settings Sync: Turn On…**. Enable at least *Extensions*, *Settings*,
+   and *Keybindings*.
+3. Open the Codespace. VS Code in the browser (or the desktop client
+   attached to the Codespace) will pull your synced extensions and apply
+   your settings automatically.
+4. If something is missing after the Codespace opens, run
+   **Settings Sync: Sync Now** from the Command Palette, or install the
+   extension once inside the Codespace — Settings Sync will pick it up for
+   next time.
+
+The repo devcontainer intentionally ships **no `extensions` list** so it
+won't conflict with or shadow your synced set. Only project-level VS Code
+*settings* (Python interpreter path, pytest config, file excludes) are
+defined in `.devcontainer/devcontainer.json`.
 
 ### Free-tier considerations
 

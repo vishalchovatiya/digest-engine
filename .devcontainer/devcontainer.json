@@ -12,10 +12,6 @@
   },
   "customizations": {
     "vscode": {
-      "extensions": [
-        "ms-python.python",
-        "redhat.vscode-yaml"
-      ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",
         "python.testing.pytestEnabled": true,
@@ -30,3 +26,4 @@
     }
   }
 }
+
