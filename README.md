@@ -311,6 +311,54 @@ The generator converts these fields to a UTC cron string. For example:
 | `vscode-weekly` | Mon 05:00 America/Toronto | VS Code updates, Copilot, productivity |
 | `ai-tools-weekly` | Mon 05:00 America/Toronto | Claude, Perplexity, Copilot, OpenAI, HuggingFace |
 | `general-motors-weekly` | Mon 05:00 America/Toronto | General Motors news, weighted toward GM Canada / Ontario |
+| `gta-events-weekly` | Thu 05:00 America/Toronto | GTA events, weighted to free / Scarborough-east-GTA / kid-friendly / clothing sales |
+| `galaxy-watch-8-price` *(disabled)* | Daily 05:00 America/Toronto (when enabled) | Price-movement watch across Amazon / Walmart / Best Buy / Costco / Samsung Canada — see template at `digests/galaxy-watch-8-price_OFF.yaml` |
+
+### Enabling the Galaxy Watch 8 price watch
+
+The file `digests/galaxy-watch-8-price_OFF.yaml` ships with `enabled: false`
+and a trailing `_OFF` suffix so the generator does NOT emit a scheduled
+workflow for it. To turn it on later:
+
+1. Open the file and replace the search-listing placeholder URLs with the
+   exact product page URLs for the SKU/colour you want to watch (Amazon,
+   Walmart, Best Buy, Costco, Samsung Canada). Search listings work as a
+   fallback but the signal is noisier.
+2. Rename the file from `galaxy-watch-8-price_OFF.yaml` to
+   `galaxy-watch-8-price.yaml` (drop the `_OFF` suffix).
+3. Set `enabled: true`.
+4. Run `python scripts/generate_workflows.py` and commit the new
+   `.github/workflows/digest-galaxy-watch-8-price.yml`.
+
+**Limitations.** This digest reuses the standard content pipeline — it
+fetches each retailer URL as a webpage and surfaces items whose text
+contains price/deal/drop signals. It does **not** scrape the live price,
+diff against yesterday's price, or compare across retailers. Large
+retailers (Amazon, Best Buy, Walmart) render prices client-side via
+JavaScript, which `requests` + BeautifulSoup cannot evaluate; on those
+sources the digest acts as a "something on this page now mentions sale /
+clearance / price drop" heuristic. For more reliable single-SKU tracking,
+add the exact product URL for the variant you care about and pair this
+with a price-alert service (e.g. RedFlagDeals, camelcamelcamel) if you
+need cent-level accuracy.
+
+### GTA events digest
+
+`gta-events-weekly` runs Thursday 05:00 America/Toronto (10:00 UTC under
+EST) and scans the City of Toronto events calendar, Kids Out and About,
+Eventbrite Scarborough/Toronto, Child's Life Scarborough, ChatterBlock,
+StyleDemocracy sale roundups, and Reddit r/Scarborough + r/askTO. Scoring
+heavily weights *free*, *Scarborough / east end / east Toronto*, *kids /
+family*, and *warehouse sale / sample sale / clothing / shoes*. Protests,
+rallies, marches, political events, 19+ / nightclub / alcohol-only
+events, job fairs, webinars, and crypto/investment pitches are excluded.
+
+Manual local preview (no email):
+
+```bash
+python -m src.main --digest gta-events-weekly --dry-run
+# open data/rendered/gta-events-weekly.html in a browser
+```
 
 ---
 

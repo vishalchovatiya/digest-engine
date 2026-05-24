@@ -551,6 +551,49 @@ def test_resolve_recipients():
 
 
 # ---------------------------------------------------------------------------
+# Test 11: disabled digests do not produce workflows
+# ---------------------------------------------------------------------------
+
+def test_disabled_digest_skipped():
+    """A digest with enabled: false must NOT generate a workflow file."""
+    import importlib.util
+    import tempfile
+
+    spec = importlib.util.spec_from_file_location(
+        "generate_workflows",
+        PROJECT_ROOT / "scripts" / "generate_workflows.py",
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    from src.main import load_configs
+    configs = load_configs()
+    disabled_ids = [c["id"] for c in configs if not c.get("enabled", True)]
+    assert "galaxy-watch-8-price" in disabled_ids, \
+        "Expected galaxy-watch-8-price to be disabled (template _OFF)"
+
+    orig_workflows_dir = mod.WORKFLOWS_DIR
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mod.WORKFLOWS_DIR = Path(tmpdir)
+            mod.generate_all(dry_run_flag=False, check=False)
+            written = {p.name for p in Path(tmpdir).glob("digest-*.yml")}
+            for did in disabled_ids:
+                assert f"digest-{did}.yml" not in written, \
+                    f"Disabled digest {did} should NOT generate a workflow"
+            # gta-events-weekly must be generated, Thursday 10 UTC
+            assert "digest-gta-events-weekly.yml" in written, \
+                "Expected gta-events-weekly workflow to be generated"
+            gta_text = (Path(tmpdir) / "digest-gta-events-weekly.yml").read_text(encoding="utf-8")
+            assert 'cron: "0 10 * * 4"' in gta_text, \
+                f"Expected Thursday 10:00 UTC cron for gta-events-weekly, got:\n{gta_text}"
+    finally:
+        mod.WORKFLOWS_DIR = orig_workflows_dir
+
+    print("  [PASS] disabled digest skipped; gta-events-weekly generated with Thu 10 UTC cron")
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -566,6 +609,7 @@ TESTS = [
     test_schedule_to_cron,
     test_workflow_generation,
     test_resolve_recipients,
+    test_disabled_digest_skipped,
 ]
 
 

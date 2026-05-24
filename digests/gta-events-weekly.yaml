@@ -1,0 +1,155 @@
+id: gta-events-weekly
+enabled: true
+schedule:
+  type: weekly
+  day_of_week: thursday
+  hour: 5
+  minute: 0
+  timezone: America/Toronto
+
+email:
+  subject: GTA Events Weekly Digest
+  to: []
+
+sources:
+  - type: webpage
+    url: https://www.toronto.ca/explore-enjoy/festivals-events/
+  - type: webpage
+    url: https://www.kidsoutandabout.com/toronto
+  - type: webpage
+    url: https://www.eventbrite.ca/d/canada--scarborough/free--kids-events/
+  - type: webpage
+    url: https://www.eventbrite.ca/d/canada--toronto/free--family-events/
+  - type: webpage
+    url: https://childslife.ca/events/scarborough/
+  - type: webpage
+    url: https://www.chatterblock.com/toronto-on/activities/?neighbourhood=scarborough
+  - type: webpage
+    url: https://styledemocracy.com/category/sales/
+  - type: rss
+    url: https://www.reddit.com/r/Scarborough/.rss
+  - type: rss
+    url: https://www.reddit.com/r/askTO/.rss
+
+filters:
+  include_keywords:
+    - free
+    - family
+    - families
+    - kids
+    - kid-friendly
+    - children
+    - toddler
+    - baby
+    - parent
+    - parents
+    - stroller
+    - scarborough
+    - east end
+    - east toronto
+    - east york
+    - markham
+    - pickering
+    - ajax
+    - durham
+    - whitby
+    - oshawa
+    - north york
+    - toronto
+    - gta
+    - greater toronto
+    - weekend
+    - saturday
+    - sunday
+    - event
+    - events
+    - festival
+    - workshop
+    - storytime
+    - library
+    - museum
+    - park
+    - sale
+    - warehouse sale
+    - sample sale
+    - clothing
+    - clothes
+    - apparel
+    - shoes
+    - clearance
+    - pop-up
+    - popup
+  exclude_keywords:
+    - protest
+    - rally
+    - march
+    - demonstration
+    - politics
+    - political
+    - politician
+    - mp
+    - mpp
+    - council vote
+    - nightclub
+    - 19+
+    - 18+
+    - adult only
+    - adult-only
+    - alcohol
+    - bar crawl
+    - sponsored
+    - advertisement
+    - job fair
+    - hiring fair
+    - webinar
+    - virtual-only
+    - online only
+    - investment
+    - crypto
+    - nft
+    - scam
+    - violence
+    - shooting
+    - stabbing
+    - arrest
+    - obituary
+    - funeral
+    - fundraiser gala
+  freshness_days: 14
+  require_any_keywords: true
+  max_items: 10
+
+scoring:
+  keyword_hit: 2
+  title_keyword_hit: 4
+  recency_boost_days: 7
+  recency_boost_score: 2
+  keyword_weights:
+    free: 6
+    scarborough: 6
+    east end: 5
+    east toronto: 5
+    east york: 4
+    kids: 5
+    kid-friendly: 5
+    family: 5
+    families: 5
+    children: 4
+    toddler: 4
+    warehouse sale: 6
+    sample sale: 6
+    clothing: 4
+    clothes: 4
+    apparel: 4
+    shoes: 4
+    clearance: 4
+    pop-up: 3
+    popup: 3
+    markham: 3
+    pickering: 3
+    ajax: 3
+    durham: 3
+    weekend: 2
+
+render:
+  intro: Thursday morning scan for practical GTA events, prioritizing free, Scarborough/east-GTA, kid-friendly, and clothing sale opportunities.

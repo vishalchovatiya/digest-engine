@@ -69,7 +69,13 @@ filters:
     - sponsored
     - advertisement
     - rumor
+    - rumour
+    - leak
+    - leaked
     - meme
+    - memes
+    - giveaway
+    - sweepstakes
   freshness_days: 14
   require_any_keywords: true
   max_items: 8

@@ -71,6 +71,18 @@ filters:
     - promo
     - discount
     - stock
+    - hiring
+    - layoff
+    - lawsuit
+    - sponsored
+    - advertisement
+    - crypto
+    - nft
+    - investor
+    - earnings
+    - fundraising round
+    - series a
+    - series b
   freshness_days: 10
   require_any_keywords: true
   max_items: 5
@@ -80,6 +92,19 @@ scoring:
   title_keyword_hit: 4
   recency_boost_days: 7
   recency_boost_score: 2
+  keyword_weights:
+    claude: 5
+    perplexity: 5
+    copilot: 5
+    chatgpt: 4
+    gemini: 3
+    notebooklm: 3
+    workflow: 3
+    productivity: 3
+    agent: 3
+    automation: 3
+    research: 2
+    writing: 2
 
 render:
   intro: Weekly AI tooling changes that are most relevant to practical daily use.

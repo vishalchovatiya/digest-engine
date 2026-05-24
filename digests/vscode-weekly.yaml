@@ -63,6 +63,11 @@ filters:
     - promo
     - discount
     - stock
+    - hiring
+    - job posting
+    - sponsored
+    - advertisement
+    - layoff
   freshness_days: 10
   require_any_keywords: true
   max_items: 5
@@ -72,6 +77,18 @@ scoring:
   title_keyword_hit: 5
   recency_boost_days: 7
   recency_boost_score: 2
+  keyword_weights:
+    copilot: 4
+    productivity: 3
+    workflow: 3
+    shortcut: 3
+    shortcuts: 3
+    keybinding: 3
+    keybindings: 3
+    extension: 2
+    extensions: 2
+    devcontainer: 3
+    codespaces: 3
 
 render:
   intro: Weekly VS Code features and workflow improvements worth trying.
