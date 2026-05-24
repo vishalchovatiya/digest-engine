@@ -13,8 +13,15 @@ automatically by `scripts/generate_workflows.py`.
 - `workflow_dispatch` on every workflow for instant manual runs with optional `dry_run`
 - Public sources only (no login required)
 - Structured keyword filters in YAML (no LLM required)
-- SQLite state tracking — no duplicate sends across runs
+- Multi-product CAD price watch (one digest tracks many products & retailers)
+- URL/title deduplication and clustering across sources
+- Per-source health logs in SQLite + `--health` CLI
+- Schema validation of digest YAMLs (generator fails fast on bad config)
+- SQLite state tracking — no duplicate sends across runs, auto-pruned
 - Resend email delivery
+
+See [docs/digest-schedules.md](docs/digest-schedules.md) for the current
+list of digests, their schedules, and the workflow files they generate.
 
 ## Project structure
 
@@ -306,13 +313,17 @@ The generator converts these fields to a UTC cron string. For example:
 
 ## Built-in digests
 
+See the auto-generated [docs/digest-schedules.md](docs/digest-schedules.md)
+for the canonical list (it is rewritten every time you run
+`scripts/generate_workflows.py`).
+
 | Digest id | Schedule (local) | Focus |
 |-----------|------------------|-------|
 | `vscode-weekly` | Mon 05:00 America/Toronto | VS Code updates, Copilot, productivity |
 | `ai-tools-weekly` | Mon 05:00 America/Toronto | Claude, Perplexity, Copilot, OpenAI, HuggingFace |
 | `general-motors-weekly` | Mon 05:00 America/Toronto | General Motors news, weighted toward GM Canada / Ontario |
 | `gta-events-weekly` | Thu 05:00 America/Toronto | GTA events, weighted to free / Scarborough-east-GTA / kid-friendly / clothing sales |
-| `galaxy-watch-8-price` *(disabled)* | Daily 05:00 America/Toronto (when enabled) | Price-movement watch across Amazon / Walmart / Best Buy / Costco / Samsung Canada — see template at `digests/galaxy-watch-8-price.yaml_OFF` |
+| `product-price-watch` *(disabled)* | Daily 05:00 America/Toronto (when enabled) | Multi-product price watch — one digest, many products & retailers. See `digests/product-price-watch.yaml_OFF` |
 
 ### Disabled digest templates (`*.yaml_OFF`)
 
@@ -331,31 +342,52 @@ To enable a disabled template:
 4. Run the smoke tests: `python tests/smoke_test.py`.
 5. Commit the renamed YAML and the new workflow.
 
-### Enabling the Galaxy Watch 8 price watch
+### Enabling the multi-product price watch
 
-`digests/galaxy-watch-8-price.yaml_OFF` follows the convention above. To
-turn it on:
+`digests/product-price-watch.yaml_OFF` is a *single* digest that tracks
+real CAD prices for *many* products. You don't need a separate digest
+per product — add products under the `products:` list.
 
-1. Open the file and replace the search-listing placeholder URLs with the
-   exact product page URLs for the SKU/colour you want to watch (Amazon,
-   Walmart, Best Buy, Costco, Samsung Canada). Search listings work as a
-   fallback but the signal is noisier.
-2. Rename the file from `galaxy-watch-8-price.yaml_OFF` to
-   `galaxy-watch-8-price.yaml`.
+```yaml
+type: price_watch
+products:
+  - id: galaxy-watch-8
+    name: Samsung Galaxy Watch 8 (44mm)
+    desired_price_cad: 399.99
+    urls:
+      - retailer: Best Buy Canada
+        url: https://www.bestbuy.ca/en-ca/product/...
+      - retailer: Walmart Canada
+        url: https://www.walmart.ca/en/ip/...
+  - id: pixel-9
+    name: Google Pixel 9
+    desired_price_cad: 799.99
+    urls:
+      - retailer: Best Buy Canada
+        url: https://www.bestbuy.ca/en-ca/product/...
+```
+
+To enable:
+
+1. Open `digests/product-price-watch.yaml_OFF` and fill in real product-page
+   URLs (prefer exact SKU pages, not search listings).
+2. Rename the file from `product-price-watch.yaml_OFF` to
+   `product-price-watch.yaml`.
 3. Run `python scripts/generate_workflows.py` and commit the new
-   `.github/workflows/digest-galaxy-watch-8-price.yml`.
+   `.github/workflows/digest-product-price-watch.yml`.
 
-**Limitations.** This digest reuses the standard content pipeline — it
-fetches each retailer URL as a webpage and surfaces items whose text
-contains price/deal/drop signals. It does **not** scrape the live price,
-diff against yesterday's price, or compare across retailers. Large
-retailers (Amazon, Best Buy, Walmart) render prices client-side via
-JavaScript, which `requests` + BeautifulSoup cannot evaluate; on those
-sources the digest acts as a "something on this page now mentions sale /
-clearance / price drop" heuristic. For more reliable single-SKU tracking,
-add the exact product URL for the variant you care about and pair this
-with a price-alert service (e.g. RedFlagDeals, camelcamelcamel) if you
-need cent-level accuracy.
+**How it works.** `src/price_tracker.py` fetches each URL, extracts the
+most likely CAD price via JSON-LD then a visible-text regex, persists the
+observation to SQLite (`price_history` table), and surfaces an item when
+the price is first observed, changes vs the previous run, or drops to/
+below `desired_price_cad`. Email is rendered through the standard
+template; the title shows retailer, current price, previous price, change
+direction, and threshold flag.
+
+**Limitations.** Some retailers (Amazon, Walmart, Best Buy) render prices
+client-side via JavaScript; for those URLs the digest reports "price
+unavailable". Pair this digest with camelcamelcamel/RedFlagDeals if you
+need cent-level accuracy on a JS-rendered page.
 
 ### GTA events digest
 
@@ -423,6 +455,57 @@ Use an address on the domain/subdomain you verified in Resend:
 - `digest@updates.example.com`
 
 ---
+
+## Source health logs
+
+Every source fetch is recorded in the SQLite `source_health` table at
+`data/state.db`. For each source we store:
+
+| Column | Meaning |
+|--------|---------|
+| `digest_id` | which digest fetched it |
+| `source_url` | the URL that was fetched |
+| `status` | `ok` (items returned), `empty` (no items), or `error` |
+| `item_count` | number of items the fetch returned |
+| `duration_ms` | how long the fetch took |
+| `error` | exception message when `status='error'` |
+| `run_utc` | timestamp of the fetch |
+
+View recent health from the CLI:
+
+```bash
+# Last 100 source fetches across all digests
+python -m src.main --health
+
+# Filtered to one digest
+python -m src.main --health --digest gta-events-weekly
+```
+
+This is the fastest way to spot a broken feed before it starts dropping
+items from your inbox.
+
+## State DB pruning
+
+`data/state.db` is the only persisted state. To keep it small, the engine
+auto-prunes old rows on every digest run with these retention windows:
+
+- `sent_items` — 30 days (no duplicate sends within the window)
+- `source_health` — 60 days of fetch history
+- `price_history` — 180 days of price observations
+
+You can also prune manually:
+
+```bash
+python -m src.main --prune
+```
+
+## Deduplication & clustering
+
+The pipeline normalizes URLs (strips `utm_*`, `gclid`, `fbclid`, anchors)
+and clusters items with high title-token overlap (Jaccard ≥ 0.6). For each
+cluster the highest-scored item wins and its summary is annotated with
+`+N duplicate source(s)` so you can see how many feeds carried the story.
+This is fully deterministic — no LLM involved.
 
 ## Notes
 

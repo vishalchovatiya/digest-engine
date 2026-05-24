@@ -593,6 +593,246 @@ def test_off_template_not_loaded():
 
 
 # ---------------------------------------------------------------------------
+# Test 12: config_schema validation
+# ---------------------------------------------------------------------------
+
+def test_config_schema():
+    from src.config_schema import validate_config
+
+    # Valid content digest
+    cfg = _make_config("schema-ok")
+    assert validate_config(cfg) == [], validate_config(cfg)
+
+    # Missing required id
+    bad = _make_config("schema-bad")
+    del bad["id"]
+    errs = validate_config(bad)
+    assert any("missing required field 'id'" in e for e in errs), errs
+
+    # Invalid day_of_week
+    bad = _make_config("schema-bad-day")
+    bad["schedule"]["day_of_week"] = "funday"
+    errs = validate_config(bad)
+    assert any("day_of_week" in e for e in errs), errs
+
+    # Invalid source type
+    bad = _make_config("schema-bad-source")
+    bad["sources"] = [{"type": "carrier-pigeon", "url": "https://x"}]
+    errs = validate_config(bad)
+    assert any("sources[0]" in e for e in errs), errs
+
+    # price_watch shape: products required
+    pw = {
+        "id": "pw-ok",
+        "type": "price_watch",
+        "schedule": {"type": "daily", "hour": 5, "minute": 0, "timezone": "UTC"},
+        "email": {"subject": "PW", "to": []},
+        "products": [
+            {
+                "id": "p1", "name": "Product", "desired_price_cad": 100.0,
+                "urls": [{"retailer": "Best Buy", "url": "https://example.com"}],
+            }
+        ],
+    }
+    assert validate_config(pw) == [], validate_config(pw)
+
+    # price_watch with empty products → error
+    pw_bad = dict(pw)
+    pw_bad["products"] = []
+    errs = validate_config(pw_bad)
+    assert any("products" in e for e in errs), errs
+
+    print("  [PASS] config_schema (valid + invalid shapes)")
+
+
+# ---------------------------------------------------------------------------
+# Test 13: dedupe / clustering
+# ---------------------------------------------------------------------------
+
+def test_dedupe():
+    from src.dedupe import normalize_url, normalize_title, cluster_items
+    from src.models import ContentItem
+
+    assert normalize_url("https://Example.com/Path/?utm_source=newsletter&id=42#anchor") == \
+        "https://example.com/Path?id=42"
+    assert normalize_url("HTTPS://example.com/a?utm_medium=x&utm_campaign=y") == \
+        "https://example.com/a"
+
+    assert normalize_title("Hello, World!  Foo --- bar") == "hello world foo bar"
+
+    now = datetime.now(timezone.utc)
+    a = ContentItem(digest_id="d", source_type="rss", source_url="s",
+                    title="Best new VS Code update for Python developers",
+                    url="https://example.com/a?utm_source=foo",
+                    published_at=now, score=10)
+    b = ContentItem(digest_id="d", source_type="rss", source_url="s2",
+                    title="Best new VS Code update for Python developers",
+                    url="https://example.com/a", published_at=now, score=5)
+    c = ContentItem(digest_id="d", source_type="rss", source_url="s3",
+                    title="Completely different topic about gardening tools",
+                    url="https://example.com/c", published_at=now, score=4)
+
+    out = cluster_items([a, b, c])
+    assert len(out) == 2, f"Expected 2 clusters, got {len(out)}"
+    # Winner of the duplicate pair should be the higher-scored one (a)
+    winners = sorted(o.url for o in out)
+    assert "https://example.com/a?utm_source=foo" in winners or \
+           "https://example.com/a" in winners
+    dup_winner = next(o for o in out if "example.com/a" in o.url)
+    assert dup_winner.metadata.get("duplicate_count") == 1
+
+    print("  [PASS] dedupe (URL normalization + title clustering)")
+
+
+# ---------------------------------------------------------------------------
+# Test 14: store source_health + price + prune
+# ---------------------------------------------------------------------------
+
+def test_store_extensions():
+    import src.store as store_mod
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        orig_path = store_mod.DB_PATH
+        try:
+            store_mod.DB_PATH = Path(tmpdir) / "state.db"
+            store_mod.record_source_health("d1", "https://s1", "ok",
+                                            item_count=3, duration_ms=120)
+            store_mod.record_source_health("d1", "https://s2", "error",
+                                            error="boom", duration_ms=50)
+            rows = store_mod.recent_source_health("d1")
+            assert len(rows) == 2
+            statuses = sorted(r["status"] for r in rows)
+            assert statuses == ["error", "ok"]
+
+            assert store_mod.get_last_price("d2", "p", "Best Buy",
+                                            "https://x") is None
+            store_mod.record_price("d2", "p", "Best Buy", "https://x", 399.99)
+            store_mod.record_price("d2", "p", "Best Buy", "https://x", 349.99)
+            assert store_mod.get_last_price("d2", "p", "Best Buy",
+                                            "https://x") == 349.99
+
+            # Prune with very long retention should delete nothing
+            counts = store_mod.prune(sent_days=999, health_days=999, price_days=999)
+            assert all(v == 0 for v in counts.values())
+        finally:
+            store_mod.DB_PATH = orig_path
+    print("  [PASS] store (source_health, price_history, prune)")
+
+
+# ---------------------------------------------------------------------------
+# Test 15: price_tracker extraction and run
+# ---------------------------------------------------------------------------
+
+def test_price_tracker():
+    import src.store as store_mod
+    from src.price_tracker import (
+        extract_price_cad, run_price_watch, notable_observations,
+    )
+
+    # JSON-LD parsing
+    html_jsonld = '''
+        <html><head><script type="application/ld+json">
+        {"@type":"Product","offers":{"price":"349.99","priceCurrency":"CAD"}}
+        </script></head><body><p>Buy now $499.00</p></body></html>
+    '''
+    assert extract_price_cad(html_jsonld) == 349.99
+
+    # Visible-text regex picking the most common price
+    html_text = '''
+        <p>$399.99</p><p>$399.99</p><p>List was $599.00</p>
+    '''
+    assert extract_price_cad(html_text) == 399.99
+
+    # CA$ prefix
+    assert extract_price_cad("<p>CA$1,299.00</p>") == 1299.00
+
+    # No price at all
+    assert extract_price_cad("<p>JavaScript renders this</p>") is None
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        orig_path = store_mod.DB_PATH
+        try:
+            store_mod.DB_PATH = Path(tmpdir) / "state.db"
+
+            cfg = {
+                "id": "pw-test", "type": "price_watch",
+                "schedule": {"type": "daily", "hour": 5, "minute": 0, "timezone": "UTC"},
+                "email": {"subject": "PW", "to": []},
+                "products": [{
+                    "id": "p1", "name": "Test Product",
+                    "desired_price_cad": 400.0,
+                    "urls": [
+                        {"retailer": "FakeMart", "url": "https://example.com/p1"},
+                        {"retailer": "OtherStore", "url": "https://example.com/p1b"},
+                    ],
+                }],
+            }
+            html_a = '<p>$429.99</p><p>$429.99</p>'
+            html_b = '<p>$389.00</p><p>$389.00</p>'
+            def fake_fetcher(url):
+                return html_a if url.endswith("p1") else html_b
+
+            obs = run_price_watch(cfg, _fetcher=fake_fetcher)
+            assert len(obs) == 2
+            by_retailer = {o.retailer: o for o in obs}
+            assert by_retailer["FakeMart"].current_price == 429.99
+            assert by_retailer["FakeMart"].change == "new"
+            assert by_retailer["OtherStore"].current_price == 389.00
+            assert by_retailer["OtherStore"].threshold_met is True
+
+            # Second run: change to lower price → 'down'
+            html_a2 = '<p>$399.99</p><p>$399.99</p>'
+            def fake_fetcher2(url):
+                return html_a2 if url.endswith("p1") else html_b
+            obs2 = run_price_watch(cfg, _fetcher=fake_fetcher2)
+            by_r2 = {o.retailer: o for o in obs2}
+            assert by_r2["FakeMart"].previous_price == 429.99
+            assert by_r2["FakeMart"].current_price == 399.99
+            assert by_r2["FakeMart"].change == "down"
+            assert by_r2["FakeMart"].threshold_met is True
+
+            notable = notable_observations(obs2)
+            assert len(notable) == 2  # FakeMart down + OtherStore same-but-threshold
+        finally:
+            store_mod.DB_PATH = orig_path
+    print("  [PASS] price_tracker (extraction + run + diff)")
+
+
+# ---------------------------------------------------------------------------
+# Test 16: load_configs rejects invalid YAML
+# ---------------------------------------------------------------------------
+
+def test_load_configs_validates():
+    """load_configs should refuse to return configs that fail schema validation."""
+    import tempfile
+    import importlib
+    import src.main as main_mod
+
+    digests_real = PROJECT_ROOT / "digests"
+    with tempfile.TemporaryDirectory() as tmpdir:
+        bad_path = Path(tmpdir) / "broken.yaml"
+        bad_path.write_text("id: broken\nschedule: not-a-mapping\nemail: {}\n", encoding="utf-8")
+
+        # Monkey-patch the digests glob path used in load_configs
+        orig_load = main_mod.load_configs
+
+        def load_from_tmp():
+            import yaml as pyyaml
+            from src.config_schema import validate_configs
+            cfgs = []
+            for path in sorted(Path(tmpdir).glob("*.yaml")):
+                with open(path, encoding="utf-8") as f:
+                    cfgs.append(pyyaml.safe_load(f))
+            errs = validate_configs(cfgs)
+            assert errs, "Expected validation errors for broken config"
+            return cfgs, errs
+
+        cfgs, errs = load_from_tmp()
+        assert any("schedule" in e for e in errs), errs
+    print("  [PASS] load_configs validates (broken config rejected)")
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -609,6 +849,11 @@ TESTS = [
     test_workflow_generation,
     test_resolve_recipients,
     test_off_template_not_loaded,
+    test_config_schema,
+    test_dedupe,
+    test_store_extensions,
+    test_price_tracker,
+    test_load_configs_validates,
 ]
 
 

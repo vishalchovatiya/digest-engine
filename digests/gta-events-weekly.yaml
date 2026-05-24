@@ -124,12 +124,23 @@ scoring:
   title_keyword_hit: 4
   recency_boost_days: 7
   recency_boost_score: 2
+  # Location weights are stacked so Scarborough/east-GTA dominate; the
+  # specific Scarborough landmarks add on top of the generic "scarborough"
+  # hit, which gives ~10+ for a Scarborough-anchored item before any
+  # kids/free/sale bonuses.
   keyword_weights:
     free: 6
-    scarborough: 6
+    scarborough: 8
+    scarborough town centre: 6
+    stc: 4
+    scarborough bluffs: 4
+    agincourt: 3
+    malvern: 3
     east end: 5
     east toronto: 5
-    east york: 4
+    east york: 5
+    toronto public library: 5
+    tpl: 3
     kids: 5
     kid-friendly: 5
     family: 5
@@ -145,11 +156,23 @@ scoring:
     clearance: 4
     pop-up: 3
     popup: 3
-    markham: 3
-    pickering: 3
-    ajax: 3
-    durham: 3
+    markham: 4
+    pickering: 4
+    ajax: 4
+    durham: 4
+    whitby: 3
+    oshawa: 3
+    north york: 2
     weekend: 2
+  # Penalties nudge but don't eliminate — Mississauga/Brampton events can
+  # still surface if they're free + kid-friendly. Downtown-only and far-west
+  # events without those signals fall below the cut.
+  penalty_weights:
+    mississauga: 3
+    brampton: 3
+    etobicoke: 2
+    downtown only: 4
+    yonge-dundas: 2
 
 render:
-  intro: Thursday morning scan for practical GTA events, prioritizing free, Scarborough/east-GTA, kid-friendly, and clothing sale opportunities.
+  intro: Thursday morning scan for practical GTA events, prioritizing free, Scarborough/east-GTA, kid-friendly, and clothing sale opportunities. Distance from Scarborough drives the score; downtown-only and far-west events are de-weighted.

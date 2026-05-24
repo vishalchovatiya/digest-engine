@@ -1,0 +1,58 @@
+# Product Price Watch — multi-product daily price tracker (DISABLED template)
+#
+# Status: DISABLED. The `.yaml_OFF` extension makes this file invisible to
+# `digests/*.yaml` globs, so neither `scripts/generate_workflows.py` nor the
+# digest loader picks it up. Rename to `digests/product-price-watch.yaml` to
+# enable.
+#
+# One digest, many products. Each `products[]` entry has one or more retailer
+# URLs. The price_watch runtime (src/price_tracker.py):
+#   * fetches each URL once
+#   * extracts the most likely CAD price using JSON-LD + visible-text regex
+#   * stores the observation in SQLite (table: price_history)
+#   * surfaces an item when the price is first observed, changes, or drops
+#     to/below `desired_price_cad`
+#
+# Limitations: some retailers (Amazon, Walmart, Best Buy) render price values
+# client-side via JavaScript that requests+BeautifulSoup cannot evaluate. For
+# those URLs the digest reports "price unavailable" — pair with a service like
+# camelcamelcamel/RedFlagDeals if cent-level accuracy matters. Provide exact
+# product-page URLs (not search listings) for best results.
+id: product-price-watch
+enabled: false
+type: price_watch
+schedule:
+  type: daily
+  hour: 5
+  minute: 0
+  timezone: America/Toronto
+
+email:
+  subject: Product Price Watch
+  to: []
+
+products:
+  - id: galaxy-watch-8
+    name: Samsung Galaxy Watch 8 (44mm)
+    desired_price_cad: 399.99
+    urls:
+      - retailer: Best Buy Canada
+        url: https://www.bestbuy.ca/en-ca/product/REPLACE-WITH-EXACT-SKU
+      - retailer: Walmart Canada
+        url: https://www.walmart.ca/en/ip/REPLACE-WITH-EXACT-SKU
+      - retailer: Amazon Canada
+        url: https://www.amazon.ca/dp/REPLACE-WITH-EXACT-ASIN
+      - retailer: Costco Canada
+        url: https://www.costco.ca/REPLACE-WITH-EXACT-PRODUCT
+      - retailer: Samsung Canada
+        url: https://www.samsung.com/ca/watches/galaxy-watch/REPLACE-WITH-EXACT-SKU
+  # Add more products as needed — each one is independent.
+  # - id: pixel-9
+  #   name: Google Pixel 9
+  #   desired_price_cad: 799.99
+  #   urls:
+  #     - retailer: Best Buy Canada
+  #       url: https://www.bestbuy.ca/en-ca/product/...
+
+render:
+  intro: Daily price-movement scan across configured retailers. Verify the current price on the retailer page before buying — some pages render prices client-side and may report "unavailable".

@@ -233,6 +233,14 @@ def load_digest_configs() -> list[dict]:
         with open(path, encoding="utf-8") as f:
             cfg = yaml.safe_load(f)
         configs.append(cfg)
+    # Schema-validate so bad YAML fails the generator (and CI --check) fast.
+    sys.path.insert(0, str(PROJECT_ROOT))
+    from src.config_schema import validate_configs
+    errors = validate_configs(configs)
+    if errors:
+        for e in errors:
+            print(f"[CONFIG-ERROR] {e}")
+        sys.exit(1)
     return configs
 
 
@@ -315,6 +323,75 @@ def generate_all(dry_run_flag: bool = False, check: bool = False) -> int:
     return changed
 
 
+SCHEDULES_DOC = PROJECT_ROOT / "docs" / "digest-schedules.md"
+
+
+def _purpose(cfg: dict) -> str:
+    intro = cfg.get("render", {}).get("intro") or ""
+    intro = intro.strip().split("\n")[0]
+    return intro[:160]
+
+
+def build_schedules_markdown() -> str:
+    configs = load_digest_configs()
+    enabled = [c for c in configs if c.get("enabled", True)]
+    disabled_files = sorted(
+        p.name for p in DIGESTS_DIR.glob("*.yaml_OFF")
+    )
+
+    lines = [
+        "# Digest schedules",
+        "",
+        "Auto-generated from `digests/*.yaml` by `scripts/generate_workflows.py --schedules-doc`.",
+        "Edit the digest YAMLs (not this file) and re-run the generator.",
+        "",
+        "## Active digests",
+        "",
+        "| Digest id | Type | Schedule (local) | UTC cron | Workflow file | Purpose |",
+        "|---|---|---|---|---|---|",
+    ]
+    for cfg in enabled:
+        did = cfg["id"]
+        dtype = cfg.get("type", "content")
+        sched = cfg.get("schedule", {})
+        try:
+            cron = schedule_to_cron(sched)
+        except ValueError:
+            cron = "—"
+        comment = _schedule_comment(sched)
+        wf = f".github/workflows/digest-{did}.yml"
+        purpose = _purpose(cfg).replace("|", "\\|") or "—"
+        lines.append(f"| `{did}` | {dtype} | {comment} | `{cron}` | `{wf}` | {purpose} |")
+
+    lines += [
+        "",
+        "## Disabled templates (`*.yaml_OFF`)",
+        "",
+        "Templates ship in the repo but are not active. Rename to `*.yaml` and "
+        "re-run the generator to enable.",
+        "",
+    ]
+    if disabled_files:
+        for name in disabled_files:
+            lines.append(f"- `digests/{name}`")
+    else:
+        lines.append("_(none)_")
+    lines.append("")
+    return "\n".join(lines)
+
+
+def write_schedules_doc() -> bool:
+    SCHEDULES_DOC.parent.mkdir(parents=True, exist_ok=True)
+    new_content = build_schedules_markdown()
+    existing = SCHEDULES_DOC.read_text(encoding="utf-8") if SCHEDULES_DOC.exists() else None
+    if existing == new_content:
+        print(f"[OK]  {SCHEDULES_DOC.relative_to(PROJECT_ROOT)} (unchanged)")
+        return False
+    SCHEDULES_DOC.write_text(new_content, encoding="utf-8")
+    print(f"[WRITE] {SCHEDULES_DOC.relative_to(PROJECT_ROOT)}")
+    return True
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[1].strip())
     parser.add_argument(
@@ -328,9 +405,19 @@ def main() -> None:
         dest="dry_run",
         help="Print generated workflows to stdout without writing files",
     )
+    parser.add_argument(
+        "--schedules-doc",
+        action="store_true",
+        help="Also (re)write docs/digest-schedules.md",
+    )
     args = parser.parse_args()
 
     result = generate_all(dry_run_flag=args.dry_run, check=args.check)
+
+    if not args.dry_run and not args.check:
+        write_schedules_doc()
+    elif args.schedules_doc:
+        write_schedules_doc()
 
     if args.check and result > 0:
         sys.exit(1)

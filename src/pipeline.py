@@ -2,6 +2,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from .models import ContentItem
 from .store import has_sent
+from .dedupe import cluster_items, normalize_url
 
 
 def filter_and_score(config: dict, items: list[ContentItem]) -> list[ContentItem]:
@@ -14,9 +15,11 @@ def filter_and_score(config: dict, items: list[ContentItem]) -> list[ContentItem
     max_items = filters.get('max_items', 5)
 
     cutoff = datetime.now(timezone.utc) - timedelta(days=freshness_days)
-    out = []
+    candidates: list[ContentItem] = []
     for item in items:
-        if not item.url or has_sent(config['id'], item.url):
+        if not item.url:
+            continue
+        if has_sent(config['id'], item.url) or has_sent(config['id'], normalize_url(item.url)):
             continue
         hay = f"{item.title} {item.summary}".lower()
         if exclude_keywords and any(k in hay for k in exclude_keywords):
@@ -37,13 +40,20 @@ def filter_and_score(config: dict, items: list[ContentItem]) -> list[ContentItem
             for term, weight in keyword_weights.items():
                 if term.lower() in hay:
                     score += int(weight)
+        penalty_weights = scoring.get('penalty_weights') or {}
+        if penalty_weights:
+            for term, weight in penalty_weights.items():
+                if term.lower() in hay:
+                    score -= int(weight)
         if item.published_at:
             recency_days = scoring.get('recency_boost_days', 7)
             if item.published_at >= datetime.now(timezone.utc) - timedelta(days=recency_days):
                 score += scoring.get('recency_boost_score', 1)
         item.score = score
         item.matched_keywords = matched
-        out.append(item)
+        candidates.append(item)
 
-    out.sort(key=lambda x: (x.score, x.published_at or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
-    return out[:max_items]
+    # Cluster near-duplicates (same normalized URL or high title overlap).
+    clustered = cluster_items(candidates)
+    clustered.sort(key=lambda x: (x.score, x.published_at or datetime.min.replace(tzinfo=timezone.utc)), reverse=True)
+    return clustered[:max_items]
