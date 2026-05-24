@@ -24,23 +24,53 @@ sources:
     url: https://huggingface.co/blog/feed.xml
   - type: rss
     url: https://blog.google/technology/ai/rss/
+  - type: rss
+    url: https://www.reddit.com/r/ProductivityApps/.rss
+  - type: rss
+    url: https://www.reddit.com/r/ChatGPTPro/.rss
+  - type: rss
+    url: https://www.reddit.com/r/perplexity_ai/.rss
 
 filters:
   include_keywords:
     - perplexity
     - claude
     - copilot
+    - chatgpt
+    - gemini
+    - notebooklm
     - ai
     - agent
     - assistant
     - workflow
     - productivity
+    - automation
+    - daily
+    - tool
+    - tools
+    - summarization
+    - research
+    - writing
+    - meeting notes
+    - email
+    - shortcuts
     - code
   exclude_keywords:
     - pricing
     - legal
     - policy
     - billing
+    - meme
+    - memes
+    - joke
+    - rant
+    - drama
+    - karma
+    - giveaway
+    - referral
+    - promo
+    - discount
+    - stock
   freshness_days: 10
   require_any_keywords: true
   max_items: 5
