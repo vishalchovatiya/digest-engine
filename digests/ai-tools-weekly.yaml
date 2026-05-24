@@ -1,0 +1,48 @@
+id: ai-tools-weekly
+enabled: true
+schedule:
+  type: weekly
+  day_of_week: sunday
+  hour: 10
+  minute: 0
+  timezone: America/Toronto
+
+email:
+  subject: Perplexity, Claude & GitHub Copilot Weekly Digest
+  to: []
+
+sources:
+  - type: webpage
+    url: https://www.perplexity.ai/hub/blog
+  - type: webpage
+    url: https://github.blog/changelog/label/copilot/
+  - type: webpage
+    url: https://www.anthropic.com/news
+
+filters:
+  include_keywords:
+    - perplexity
+    - claude
+    - copilot
+    - ai
+    - agent
+    - workflow
+    - productivity
+    - code
+  exclude_keywords:
+    - pricing
+    - legal
+    - policy
+    - billing
+  freshness_days: 10
+  require_any_keywords: true
+  max_items: 5
+
+scoring:
+  keyword_hit: 2
+  title_keyword_hit: 4
+  recency_boost_days: 7
+  recency_boost_score: 2
+
+render:
+  intro: Weekly AI tooling changes that are most relevant to practical daily use.

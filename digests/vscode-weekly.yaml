@@ -1,0 +1,47 @@
+id: vscode-weekly
+enabled: true
+schedule:
+  type: weekly
+  day_of_week: friday
+  hour: 18
+  minute: 0
+  timezone: America/Toronto
+
+email:
+  subject: VS Code Weekly Digest
+  to: []
+
+sources:
+  - type: webpage
+    url: https://code.visualstudio.com/updates
+  - type: webpage
+    url: https://github.blog/changelog/
+
+filters:
+  include_keywords:
+    - vscode
+    - visual studio code
+    - copilot
+    - editor
+    - debug
+    - terminal
+    - productivity
+    - workflow
+  exclude_keywords:
+    - pricing
+    - legal
+    - policy
+    - enterprise
+    - billing
+  freshness_days: 10
+  require_any_keywords: true
+  max_items: 5
+
+scoring:
+  keyword_hit: 3
+  title_keyword_hit: 5
+  recency_boost_days: 7
+  recency_boost_score: 2
+
+render:
+  intro: Weekly VS Code features and workflow improvements worth trying.
