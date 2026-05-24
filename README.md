@@ -66,7 +66,7 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# Edit .env — set RESEND_API_KEY, DIGEST_FROM_EMAIL, DIGEST_TO_EMAIL
+# Edit .env — set RESEND_API_KEY, DIGEST_FROM_EMAIL, DIGEST_TO_EMAILS
 ```
 
 Export in your shell (or use `direnv`):
@@ -74,7 +74,7 @@ Export in your shell (or use `direnv`):
 ```bash
 export RESEND_API_KEY=re_...
 export DIGEST_FROM_EMAIL="Digest <digest@yourdomain.com>"
-export DIGEST_TO_EMAIL=you@example.com
+export DIGEST_TO_EMAILS="you@example.com,teammate@example.com"
 ```
 
 ### 3. Local run commands
@@ -180,7 +180,7 @@ Live sends require Resend credentials. Use **Codespaces secrets**, not the
 default Actions secrets — they are separate stores:
 
 1. GitHub → **Settings → Codespaces → Codespaces secrets → New secret**.
-2. Add `RESEND_API_KEY`, `DIGEST_FROM_EMAIL`, `DIGEST_TO_EMAIL` and grant
+2. Add `RESEND_API_KEY`, `DIGEST_FROM_EMAIL`, `DIGEST_TO_EMAILS` and grant
    access to this repository.
 3. Restart the Codespace so the env vars become available.
 4. `python -m src.main --digest <id>` will now send.
@@ -210,7 +210,7 @@ Go to **Settings → Secrets and variables → Actions** and create:
 |--------|-------------|
 | `RESEND_API_KEY` | API key from [resend.com](https://resend.com) |
 | `DIGEST_FROM_EMAIL` | Verified sender address (e.g. `Digest <digest@yourdomain.com>`) |
-| `DIGEST_TO_EMAIL` | Default recipient — used when `email.to` is empty in the YAML |
+| `DIGEST_TO_EMAILS` | Default recipient(s) — comma-separated list, appended to each digest's `email.to` (deduped case-insensitively) |
 
 ### 3. Generate per-digest workflows
 
@@ -319,7 +319,7 @@ The generator converts these fields to a UTC cron string. For example:
 |--------|-------------|
 | `RESEND_API_KEY` | API key from [resend.com](https://resend.com) |
 | `DIGEST_FROM_EMAIL` | Verified sender address |
-| `DIGEST_TO_EMAIL` | Default recipient (optional if `email.to` is set in YAML) |
+| `DIGEST_TO_EMAILS` | Default recipient(s), comma-separated (optional if `email.to` is set in YAML) |
 
 ## DIGEST_FROM_EMAIL format
 

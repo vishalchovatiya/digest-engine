@@ -22,10 +22,12 @@ def load_configs() -> list[dict]:
 
 
 def resolve_recipients(config: dict) -> list[str]:
-    recipients = config.get('email', {}).get('to', []) or []
-    default_to = os.getenv('DIGEST_TO_EMAIL', '').strip()
-    if default_to:
-        recipients.append(default_to)
+    recipients = list(config.get('email', {}).get('to', []) or [])
+    env_value = os.getenv('DIGEST_TO_EMAILS', '')
+    for part in env_value.split(','):
+        addr = part.strip()
+        if addr:
+            recipients.append(addr)
     recipients = [r.strip() for r in recipients if r and r.strip()]
     deduped = []
     seen = set()

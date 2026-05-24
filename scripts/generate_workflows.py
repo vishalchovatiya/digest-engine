@@ -190,7 +190,7 @@ jobs:
         env:
           RESEND_API_KEY: ${{{{ secrets.RESEND_API_KEY }}}}
           DIGEST_FROM_EMAIL: ${{{{ secrets.DIGEST_FROM_EMAIL }}}}
-          DIGEST_TO_EMAIL: ${{{{ secrets.DIGEST_TO_EMAIL }}}}
+          DIGEST_TO_EMAILS: ${{{{ secrets.DIGEST_TO_EMAILS }}}}
 """
 
 

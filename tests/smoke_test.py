@@ -431,6 +431,52 @@ def test_workflow_generation():
 
 
 # ---------------------------------------------------------------------------
+# Test 10: resolve_recipients — DIGEST_TO_EMAILS parsing + dedupe
+# ---------------------------------------------------------------------------
+
+def test_resolve_recipients():
+    from src.main import resolve_recipients
+
+    # Comma-separated env value with whitespace and blanks
+    with patch.dict(os.environ, {"DIGEST_TO_EMAILS": "a@example.com,b@example.com, c@example.com ,, "}, clear=False):
+        out = resolve_recipients({"email": {"to": []}})
+        assert out == ["a@example.com", "b@example.com", "c@example.com"], out
+
+    # YAML list is preserved; env recipients are appended
+    with patch.dict(os.environ, {"DIGEST_TO_EMAILS": "env@example.com"}, clear=False):
+        out = resolve_recipients({"email": {"to": ["yaml@example.com"]}})
+        assert out == ["yaml@example.com", "env@example.com"], out
+
+    # Case-insensitive dedupe across YAML list and env, preserves first-seen casing
+    with patch.dict(os.environ, {"DIGEST_TO_EMAILS": "A@Example.com, c@example.com"}, clear=False):
+        out = resolve_recipients({"email": {"to": ["a@example.com", "B@example.com"]}})
+        assert out == ["a@example.com", "B@example.com", "c@example.com"], out
+
+    # Empty env var → only YAML list
+    with patch.dict(os.environ, {"DIGEST_TO_EMAILS": ""}, clear=False):
+        out = resolve_recipients({"email": {"to": ["only@example.com"]}})
+        assert out == ["only@example.com"], out
+
+    # Whitespace-only env entries collapse to empty
+    with patch.dict(os.environ, {"DIGEST_TO_EMAILS": " , ,  "}, clear=False):
+        out = resolve_recipients({"email": {"to": []}})
+        assert out == [], out
+
+    # Missing env var entirely → only YAML list
+    env_no_var = {k: v for k, v in os.environ.items() if k != "DIGEST_TO_EMAILS"}
+    with patch.dict(os.environ, env_no_var, clear=True):
+        out = resolve_recipients({"email": {"to": ["yaml@example.com"]}})
+        assert out == ["yaml@example.com"], out
+
+    # YAML duplicates within the same list are deduped
+    with patch.dict(os.environ, {"DIGEST_TO_EMAILS": ""}, clear=False):
+        out = resolve_recipients({"email": {"to": ["x@example.com", "X@EXAMPLE.com"]}})
+        assert out == ["x@example.com"], out
+
+    print("  [PASS] resolve_recipients (comma-separated DIGEST_TO_EMAILS + dedupe)")
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -444,6 +490,7 @@ TESTS = [
     test_dry_run_e2e,
     test_schedule_to_cron,
     test_workflow_generation,
+    test_resolve_recipients,
 ]
 
 
