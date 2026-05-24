@@ -1,12 +1,13 @@
 # Galaxy Watch 8 — daily price-change watch (DISABLED template)
 #
-# Status: DISABLED. The trailing `_OFF` suffix in the filename and
-# `enabled: false` together ensure that `scripts/generate_workflows.py` does
-# NOT emit a scheduled workflow for this digest. To enable later:
+# Status: DISABLED. The `.yaml_OFF` extension makes this file invisible to
+# `digests/*.yaml` globs, so neither `scripts/generate_workflows.py` nor the
+# digest loader picks it up. To enable later:
 #   1. Replace the placeholder product URLs below with the exact product page
 #      URLs for the SKU/colour you want to track.
-#   2. Rename the file to `digests/galaxy-watch-8-price.yaml` (drop `_OFF`).
-#   3. Set `enabled: true`.
+#   2. Rename the file to `digests/galaxy-watch-8-price.yaml` (change the
+#      `.yaml_OFF` extension to `.yaml`).
+#   3. Set `enabled: true` (optional — `enabled` defaults to true).
 #   4. Re-run `python scripts/generate_workflows.py` and commit the new
 #      `.github/workflows/digest-galaxy-watch-8-price.yml`.
 #

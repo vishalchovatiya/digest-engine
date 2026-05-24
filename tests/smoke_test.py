@@ -551,11 +551,13 @@ def test_resolve_recipients():
 
 
 # ---------------------------------------------------------------------------
-# Test 11: disabled digests do not produce workflows
+# Test 11: .yaml_OFF templates are not loaded; gta-events-weekly cron is correct
 # ---------------------------------------------------------------------------
 
-def test_disabled_digest_skipped():
-    """A digest with enabled: false must NOT generate a workflow file."""
+def test_off_template_not_loaded():
+    """Files with a .yaml_OFF extension must not be picked up by the loader
+    or the workflow generator (the digests/*.yaml glob naturally skips them).
+    Also verifies gta-events-weekly generates with the expected Thu 10 UTC cron."""
     import importlib.util
     import tempfile
 
@@ -567,10 +569,9 @@ def test_disabled_digest_skipped():
     spec.loader.exec_module(mod)
 
     from src.main import load_configs
-    configs = load_configs()
-    disabled_ids = [c["id"] for c in configs if not c.get("enabled", True)]
-    assert "galaxy-watch-8-price" in disabled_ids, \
-        "Expected galaxy-watch-8-price to be disabled (template _OFF)"
+    ids = [c["id"] for c in load_configs()]
+    assert "galaxy-watch-8-price" not in ids, \
+        "Expected galaxy-watch-8-price (.yaml_OFF template) to be skipped by the loader"
 
     orig_workflows_dir = mod.WORKFLOWS_DIR
     try:
@@ -578,10 +579,8 @@ def test_disabled_digest_skipped():
             mod.WORKFLOWS_DIR = Path(tmpdir)
             mod.generate_all(dry_run_flag=False, check=False)
             written = {p.name for p in Path(tmpdir).glob("digest-*.yml")}
-            for did in disabled_ids:
-                assert f"digest-{did}.yml" not in written, \
-                    f"Disabled digest {did} should NOT generate a workflow"
-            # gta-events-weekly must be generated, Thursday 10 UTC
+            assert "digest-galaxy-watch-8-price.yml" not in written, \
+                "No workflow should be generated for a .yaml_OFF template"
             assert "digest-gta-events-weekly.yml" in written, \
                 "Expected gta-events-weekly workflow to be generated"
             gta_text = (Path(tmpdir) / "digest-gta-events-weekly.yml").read_text(encoding="utf-8")
@@ -590,7 +589,7 @@ def test_disabled_digest_skipped():
     finally:
         mod.WORKFLOWS_DIR = orig_workflows_dir
 
-    print("  [PASS] disabled digest skipped; gta-events-weekly generated with Thu 10 UTC cron")
+    print("  [PASS] .yaml_OFF template not loaded; gta-events-weekly cron Thu 10 UTC")
 
 
 # ---------------------------------------------------------------------------
@@ -609,7 +608,7 @@ TESTS = [
     test_schedule_to_cron,
     test_workflow_generation,
     test_resolve_recipients,
-    test_disabled_digest_skipped,
+    test_off_template_not_loaded,
 ]
 
 

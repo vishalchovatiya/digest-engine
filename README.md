@@ -312,22 +312,37 @@ The generator converts these fields to a UTC cron string. For example:
 | `ai-tools-weekly` | Mon 05:00 America/Toronto | Claude, Perplexity, Copilot, OpenAI, HuggingFace |
 | `general-motors-weekly` | Mon 05:00 America/Toronto | General Motors news, weighted toward GM Canada / Ontario |
 | `gta-events-weekly` | Thu 05:00 America/Toronto | GTA events, weighted to free / Scarborough-east-GTA / kid-friendly / clothing sales |
-| `galaxy-watch-8-price` *(disabled)* | Daily 05:00 America/Toronto (when enabled) | Price-movement watch across Amazon / Walmart / Best Buy / Costco / Samsung Canada — see template at `digests/galaxy-watch-8-price_OFF.yaml` |
+| `galaxy-watch-8-price` *(disabled)* | Daily 05:00 America/Toronto (when enabled) | Price-movement watch across Amazon / Walmart / Best Buy / Costco / Samsung Canada — see template at `digests/galaxy-watch-8-price.yaml_OFF` |
+
+### Disabled digest templates (`*.yaml_OFF`)
+
+Templates that ship in the repo but are not active use the `.yaml_OFF`
+extension. The loader and the workflow generator both glob `digests/*.yaml`,
+so a `.yaml_OFF` file is naturally invisible to them — no special-case code,
+flag, or test is needed to keep it dormant.
+
+To enable a disabled template:
+
+1. Rename the file from `<name>.yaml_OFF` to `<name>.yaml`.
+2. Open it and review the `id:` field plus any placeholder URLs or settings
+   the template flagged in its header comment.
+3. Run `python scripts/generate_workflows.py` to emit
+   `.github/workflows/digest-<id>.yml`.
+4. Run the smoke tests: `python tests/smoke_test.py`.
+5. Commit the renamed YAML and the new workflow.
 
 ### Enabling the Galaxy Watch 8 price watch
 
-The file `digests/galaxy-watch-8-price_OFF.yaml` ships with `enabled: false`
-and a trailing `_OFF` suffix so the generator does NOT emit a scheduled
-workflow for it. To turn it on later:
+`digests/galaxy-watch-8-price.yaml_OFF` follows the convention above. To
+turn it on:
 
 1. Open the file and replace the search-listing placeholder URLs with the
    exact product page URLs for the SKU/colour you want to watch (Amazon,
    Walmart, Best Buy, Costco, Samsung Canada). Search listings work as a
    fallback but the signal is noisier.
-2. Rename the file from `galaxy-watch-8-price_OFF.yaml` to
-   `galaxy-watch-8-price.yaml` (drop the `_OFF` suffix).
-3. Set `enabled: true`.
-4. Run `python scripts/generate_workflows.py` and commit the new
+2. Rename the file from `galaxy-watch-8-price.yaml_OFF` to
+   `galaxy-watch-8-price.yaml`.
+3. Run `python scripts/generate_workflows.py` and commit the new
    `.github/workflows/digest-galaxy-watch-8-price.yml`.
 
 **Limitations.** This digest reuses the standard content pipeline — it
