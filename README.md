@@ -2,43 +2,55 @@
 
 Lean multi-digest email engine using GitHub Actions + Python + Resend.
 
+Each digest has its own GitHub Actions workflow with its own cron schedule — no shared
+hourly poller. Schedules are defined in the digest YAML and converted to UTC cron
+automatically by `scripts/generate_workflows.py`.
+
 ## Features
 
-- One repo for multiple digests
-- One workflow for scheduled and manual runs
+- One repo, multiple digests — each digest is one YAML file
+- Per-digest GitHub Actions workflow with its own cron (generated from YAML)
+- `workflow_dispatch` on every workflow for instant manual runs with optional `dry_run`
 - Public sources only (no login required)
-- Structured filters in YAML (no LLM compiler)
-- SQLite state tracking to avoid duplicates
+- Structured keyword filters in YAML (no LLM required)
+- SQLite state tracking — no duplicate sends across runs
 - Resend email delivery
 
 ## Project structure
 
 ```
 digest-engine/
-├─ .github/workflows/digests.yml   # scheduled/manual workflow
-├─ digests/                        # one digest per YAML file
+├─ .github/workflows/
+│  ├─ digest-<id>.yml      # per-digest workflow (auto-generated — do not edit)
+│  ├─ manual.yml           # manual trigger for any digest by id
+│  └─ digests.yml          # legacy placeholder (disabled, no triggers)
+├─ digests/                # one digest per YAML file
 │  ├─ vscode-weekly.yaml
 │  └─ ai-tools-weekly.yaml
-├─ src/                            # planner, fetching, filtering, rendering, email, state
+├─ scripts/
+│  └─ generate_workflows.py  # reads digests/*.yaml → writes .github/workflows/digest-<id>.yml
+├─ src/                    # planner, fetching, filtering, rendering, email, state
 │  ├─ __init__.py
-│  ├─ main.py                      # CLI entrypoint
-│  ├─ mailer.py                    # Resend delivery
-│  ├─ models.py                    # ContentItem dataclass
-│  ├─ pipeline.py                  # filter + score
-│  ├─ planner.py                   # schedule due-check
-│  ├─ renderer.py                  # Jinja2 HTML render
-│  ├─ sources.py                   # RSS and webpage fetcher
-│  └─ store.py                     # SQLite state (runs + sent items)
+│  ├─ main.py              # CLI entrypoint
+│  ├─ mailer.py            # Resend delivery
+│  ├─ models.py            # ContentItem dataclass
+│  ├─ pipeline.py          # filter + score
+│  ├─ planner.py           # schedule due-check (used for local --due runs)
+│  ├─ renderer.py          # Jinja2 HTML render
+│  ├─ sources.py           # RSS and webpage fetcher
+│  └─ store.py             # SQLite state (runs + sent items)
 ├─ templates/
-│  └─ email.html.j2                # shared HTML email template
+│  └─ email.html.j2        # HTML email template
 ├─ tests/
-│  └─ smoke_test.py                # offline smoke test (no network, no email)
-├─ .env.example                    # copy to .env and fill values
+│  └─ smoke_test.py        # offline smoke tests (no network, no email)
+├─ .env.example            # copy to .env and fill values
 ├─ requirements.txt
-└─ data/state.db                   # created at runtime (git-ignored)
+└─ data/state.db           # created at runtime (git-ignored)
 ```
 
-## Quick start
+---
+
+## Quick start (local)
 
 ### 1. Clone and set up environment
 
@@ -54,10 +66,10 @@ pip install -r requirements.txt
 
 ```bash
 cp .env.example .env
-# Edit .env and set RESEND_API_KEY, DIGEST_FROM_EMAIL, DIGEST_TO_EMAIL
+# Edit .env — set RESEND_API_KEY, DIGEST_FROM_EMAIL, DIGEST_TO_EMAIL
 ```
 
-Then export in your shell (or use a tool like `direnv`):
+Export in your shell (or use `direnv`):
 
 ```bash
 export RESEND_API_KEY=re_...
@@ -65,19 +77,213 @@ export DIGEST_FROM_EMAIL="Digest <digest@yourdomain.com>"
 export DIGEST_TO_EMAIL=you@example.com
 ```
 
-### 3. Run commands
+### 3. Local run commands
 
 | Goal | Command |
 |------|---------|
-| Dry-run a specific digest (no email sent) | `python -m src.main --digest vscode-weekly --dry-run` |
+| Dry-run one digest (no email) | `python -m src.main --digest vscode-weekly --dry-run` |
 | Dry-run all due digests | `python -m src.main --due --dry-run` |
-| Send a specific digest | `python -m src.main --digest vscode-weekly` |
+| Send one digest | `python -m src.main --digest vscode-weekly` |
 | Run all due digests (live send) | `python -m src.main --due` |
-| Offline smoke test | `python tests/smoke_test.py` |
+| Offline smoke tests | `python tests/smoke_test.py` |
+| pytest | `python -m pytest tests/smoke_test.py -v` |
 
-### 4. Rendered output
+### 4. Preview rendered output
 
-Every run writes `data/rendered/<digest-id>.html` — open in a browser to preview the email before sending.
+Every run writes `data/rendered/<digest-id>.html`. Open in a browser to
+preview the email before sending.
+
+---
+
+## GitHub Codespaces (free tier)
+
+This repo ships with `.devcontainer/devcontainer.json` so you can develop in
+the browser without installing Python locally. The container is intentionally
+lightweight (Python 3.11 base image, no extra features) to minimise startup
+time and Codespaces compute usage.
+
+### Open the repo in Codespaces
+
+1. On GitHub, click **Code → Codespaces → Create codespace on main**.
+2. Wait ~30–60 s for `postCreateCommand` to install Python dependencies.
+3. VS Code opens in the browser with the Python and YAML extensions pre-installed.
+
+### Free-tier considerations
+
+GitHub gives free accounts ~120 core-hours/month of Codespaces compute. To
+stay well under the quota:
+
+- **Stop the Codespace** when you walk away (Codespaces tab → ⋯ → Stop).
+- **Delete the Codespace** when you no longer need it (the container restarts
+  fast, so recreating it is cheap).
+- The 2-core machine type is the cheapest — keep the default in
+  `.devcontainer/devcontainer.json`; do not upgrade unless you need it.
+- Auto-stop is on by default (30 min idle). You can lower this in your
+  GitHub Codespaces settings.
+
+### Test commands inside the Codespace
+
+Run from the integrated terminal — no `RESEND_API_KEY` is required for any
+of these (they are offline / dry-run):
+
+```bash
+# Validate workflow generator output (no writes, exit 1 if drift)
+python scripts/generate_workflows.py --check
+
+# Regenerate per-digest workflows (writes .github/workflows/digest-*.yml)
+python scripts/generate_workflows.py
+
+# Preview a digest's generated workflow without writing to disk
+python scripts/generate_workflows.py --dry-run
+
+# Offline smoke tests (no network, no email)
+python tests/smoke_test.py
+
+# Same suite via pytest
+python -m pytest tests/smoke_test.py -v
+
+# Dry-run a real digest pipeline (writes data/rendered/<id>.html)
+python -m src.main --digest vscode-weekly --dry-run
+```
+
+### Live sends from a Codespace (optional)
+
+Live sends require Resend credentials. Use **Codespaces secrets**, not the
+default Actions secrets — they are separate stores:
+
+1. GitHub → **Settings → Codespaces → Codespaces secrets → New secret**.
+2. Add `RESEND_API_KEY`, `DIGEST_FROM_EMAIL`, `DIGEST_TO_EMAIL` and grant
+   access to this repository.
+3. Restart the Codespace so the env vars become available.
+4. `python -m src.main --digest <id>` will now send.
+
+Configure the same three values as **Actions secrets** (Settings → Secrets
+and variables → Actions) for the scheduled workflows.
+
+---
+
+## GitHub setup
+
+### 1. Push the repo
+
+Make the repository public on GitHub (the scheduled workflows only run for
+public repos on the free tier).
+
+```bash
+git remote add origin https://github.com/<you>/<repo>.git
+git push -u origin main
+```
+
+### 2. Add GitHub Secrets
+
+Go to **Settings → Secrets and variables → Actions** and create:
+
+| Secret | Description |
+|--------|-------------|
+| `RESEND_API_KEY` | API key from [resend.com](https://resend.com) |
+| `DIGEST_FROM_EMAIL` | Verified sender address (e.g. `Digest <digest@yourdomain.com>`) |
+| `DIGEST_TO_EMAIL` | Default recipient — used when `email.to` is empty in the YAML |
+
+### 3. Generate per-digest workflows
+
+Run the generator from the project root:
+
+```bash
+python scripts/generate_workflows.py
+```
+
+This reads every `digests/*.yaml` file and writes
+`.github/workflows/digest-<id>.yml` for each **enabled** digest.
+Commit and push the generated files:
+
+```bash
+git add .github/workflows/
+git commit -m "chore: generate per-digest workflows"
+git push
+```
+
+> **Re-run after every schedule or id change.** The generator is idempotent —
+> it only overwrites files whose content changed.
+
+#### Generator options
+
+| Command | Effect |
+|---------|--------|
+| `python scripts/generate_workflows.py` | Write all workflows |
+| `python scripts/generate_workflows.py --dry-run` | Print to stdout, no file writes |
+| `python scripts/generate_workflows.py --check` | Exit 1 if any workflow needs updating (CI guard) |
+
+### 4. Automatic scheduled runs
+
+Once the workflows are committed to `main`, GitHub runs each digest on its own
+cron automatically. No manual intervention is needed.
+
+Check run history at **Actions → Digest: \<name\>**.
+
+#### UTC cron and DST caveat
+
+GitHub Actions cron is **always UTC**. The generator converts each digest's
+`timezone`/`hour`/`minute` to UTC using the timezone's *standard-time* offset
+(i.e. the January offset). During daylight saving time the workflow will fire
+one hour earlier in wall-clock time. This is a known GitHub Actions limitation.
+To compensate for DST, adjust `hour` in the digest YAML by ±1 for the half of
+the year you care about, then re-run the generator.
+
+---
+
+## Manual testing in GitHub Actions
+
+### Test a specific digest with dry_run
+
+1. Go to **Actions** → select **Digest: \<name\>** (or **Manual — Run any digest**)
+2. Click **Run workflow**
+3. Set `dry_run` to `true`
+4. Click **Run workflow**
+
+The workflow renders the email HTML and prints `[DRY RUN] would send …` — no
+email is sent. Download the rendered artefact from the run summary if you want
+to inspect the HTML output.
+
+### Test any digest by id (manual.yml)
+
+Use the **Manual — Run any digest** workflow when you want to trigger a digest
+that doesn't have a cron scheduled yet, or when testing a newly added digest:
+
+1. **Actions → Manual — Run any digest → Run workflow**
+2. Enter the digest id (e.g. `vscode-weekly`)
+3. Set `dry_run: true` for a preview run
+
+---
+
+## Digest YAML schedule fields
+
+```yaml
+schedule:
+  type: weekly          # "weekly" or "daily"
+  day_of_week: friday   # weekly only: monday–sunday
+  hour: 18              # local hour (0–23)
+  minute: 0             # local minute (0–59)
+  timezone: America/Toronto  # IANA timezone name
+```
+
+The generator converts these fields to a UTC cron string. For example:
+
+| Local schedule | UTC cron |
+|----------------|----------|
+| Friday 18:00 America/Toronto (EST=UTC-5) | `0 23 * * 5` |
+| Sunday 10:00 America/Toronto (EST=UTC-5) | `0 15 * * 0` |
+| Monday 09:00 UTC | `0 9 * * 1` |
+
+---
+
+## Adding a new digest
+
+1. Copy any existing file in `digests/`, change `id`, `schedule`, `sources`,
+   `filters`, and `email.subject`.
+2. Re-run `python scripts/generate_workflows.py`.
+3. Commit and push — the new workflow is live immediately.
+
+---
 
 ## Required GitHub Secrets
 
@@ -85,11 +291,7 @@ Every run writes `data/rendered/<digest-id>.html` — open in a browser to previ
 |--------|-------------|
 | `RESEND_API_KEY` | API key from [resend.com](https://resend.com) |
 | `DIGEST_FROM_EMAIL` | Verified sender address |
-| `DIGEST_TO_EMAIL` | Default recipient (optional) |
-
-## Adding a new digest
-
-Copy any existing YAML file in `digests/`, change `id`, `schedule`, `sources`, `filters`, and `email.subject`. The engine picks it up automatically on the next run.
+| `DIGEST_TO_EMAIL` | Default recipient (optional if `email.to` is set in YAML) |
 
 ## DIGEST_FROM_EMAIL format
 
@@ -98,9 +300,14 @@ Use an address on the domain/subdomain you verified in Resend:
 - `Vishal Digest <digest@updates.example.com>`
 - `digest@updates.example.com`
 
+---
+
 ## Notes
 
 - Rotate any API key that was exposed outside your secret store.
-- GitHub Actions cron runs in UTC.
+- GitHub Actions cron runs in UTC (see DST caveat above).
 - SQLite state file (`data/state.db`) is git-ignored; it is created on first run.
-- Source fetching is best-effort: if one source fails, the others still run and a `[WARN]` is printed.
+- Source fetching is best-effort: if one source fails the others still run and a
+  `[WARN]` is printed.
+- `.github/workflows/digest-*.yml` files are auto-generated — commit them but
+  do not edit them manually; edit the digest YAML and re-run the generator.

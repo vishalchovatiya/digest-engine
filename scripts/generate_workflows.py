@@ -1,0 +1,342 @@
+#!/usr/bin/env python3
+"""
+generate_workflows.py
+---------------------
+Reads every digest YAML in digests/*.yaml and writes a dedicated GitHub Actions
+workflow to .github/workflows/digest-<id>.yml.
+
+Each workflow:
+  - runs on its own cron (derived from the digest's schedule, converted to UTC)
+  - supports workflow_dispatch with a dry_run boolean input
+  - runs exactly one digest id (--digest <id>)
+
+Usage:
+    python scripts/generate_workflows.py               # write all workflows
+    python scripts/generate_workflows.py --check       # validate only (exit 1 if changes needed)
+    python scripts/generate_workflows.py --dry-run     # print to stdout, no file writes
+
+Schedule conversion notes:
+  - GitHub Actions cron is always UTC.
+  - Weekly digests: day_of_week + hour + minute from the digest YAML are first
+    converted from the declared timezone to UTC.  The UTC day may differ from
+    the local day (e.g. Sunday 22:00 Toronto EST = Monday 03:00 UTC).
+  - Daily digests: only hour + minute are shifted to UTC.
+  - DST caveat: the UTC offset used is the *standard-time* offset for the
+    timezone.  During DST the cron will fire one hour early in wall-clock time.
+    This is a known limitation of GitHub Actions cron — there is no DST-aware
+    scheduling primitive.  Add ±1 h manually for digests that must fire at an
+    exact wall-clock time year-round.
+"""
+from __future__ import annotations
+
+import argparse
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import yaml
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+DIGESTS_DIR = PROJECT_ROOT / "digests"
+WORKFLOWS_DIR = PROJECT_ROOT / ".github" / "workflows"
+
+# Day-of-week mapping used in cron expressions (0=Sunday in cron)
+_DOW_CRON = {
+    "sunday": 0,
+    "monday": 1,
+    "tuesday": 2,
+    "wednesday": 3,
+    "thursday": 4,
+    "friday": 5,
+    "saturday": 6,
+}
+
+# Python weekday() → cron dow (cron Sunday=0, Python Monday=0)
+_PY_DOW_TO_CRON = {
+    0: 1,  # Monday
+    1: 2,  # Tuesday
+    2: 3,  # Wednesday
+    3: 4,  # Thursday
+    4: 5,  # Friday
+    5: 6,  # Saturday
+    6: 0,  # Sunday
+}
+
+
+# ---------------------------------------------------------------------------
+# Schedule → cron conversion
+# ---------------------------------------------------------------------------
+
+def _utc_offset_minutes(tz_name: str) -> int:
+    """
+    Return the UTC offset in minutes for *standard time* in the given timezone.
+
+    We use January 1st of the current year (which is always in standard time
+    for timezones that observe DST in the northern hemisphere) to determine
+    the offset.  This is intentional: GitHub cron has no DST support.
+    """
+    tz = ZoneInfo(tz_name)
+    probe = datetime(datetime.now().year, 1, 15, 12, 0, tzinfo=tz)
+    offset = probe.utcoffset()
+    if offset is None:
+        return 0
+    return int(offset.total_seconds() // 60)
+
+
+def schedule_to_cron(schedule: dict) -> str:
+    """
+    Convert a digest schedule dict to a GitHub Actions cron string (UTC).
+
+    Returns a cron string like '0 15 * * 1' (minute hour * * dow).
+    Raises ValueError for unsupported schedule types.
+    """
+    tz_name = schedule.get("timezone", "UTC")
+    hour = int(schedule.get("hour", 0))
+    minute = int(schedule.get("minute", 0))
+
+    # Convert local time to UTC
+    offset_minutes = _utc_offset_minutes(tz_name)
+    total_minutes_local = hour * 60 + minute
+    total_minutes_utc = total_minutes_local - offset_minutes  # subtract offset (UTC = local - offset)
+
+    # Wrap minutes and hours, track day shift
+    day_shift = 0
+    total_minutes_utc = total_minutes_utc % (24 * 60)
+    # The modulo above handles negative values in Python (always non-negative)
+    # But we need the day shift for weekly schedules:
+    raw_utc = total_minutes_local - offset_minutes
+    if raw_utc < 0:
+        day_shift = -1
+    elif raw_utc >= 24 * 60:
+        day_shift = 1
+    else:
+        day_shift = 0
+
+    utc_hour = total_minutes_utc // 60
+    utc_minute = total_minutes_utc % 60
+
+    stype = schedule.get("type", "weekly")
+
+    if stype == "daily":
+        return f"{utc_minute} {utc_hour} * * *"
+
+    if stype == "weekly":
+        day_name = schedule.get("day_of_week", "monday").lower()
+        if day_name not in _DOW_CRON:
+            raise ValueError(f"Unknown day_of_week: {day_name!r}")
+        # cron dow: Sunday=0
+        local_cron_dow = _DOW_CRON[day_name]
+        utc_cron_dow = (local_cron_dow + day_shift) % 7
+        return f"{utc_minute} {utc_hour} * * {utc_cron_dow}"
+
+    raise ValueError(f"Unsupported schedule type: {stype!r}")
+
+
+# ---------------------------------------------------------------------------
+# Workflow YAML template
+# ---------------------------------------------------------------------------
+
+_WORKFLOW_TEMPLATE = """\
+# Auto-generated by scripts/generate_workflows.py — do not edit manually.
+# Re-generate with:  python scripts/generate_workflows.py
+#
+# Schedule note: GitHub Actions cron is always UTC.
+# The cron below was converted from the digest's declared timezone using its
+# standard-time UTC offset.  During daylight saving time (DST) this workflow
+# will fire one hour early in wall-clock time — a known GitHub Actions cron
+# limitation (no DST support).
+name: "Digest: {display_name}"
+
+on:
+  schedule:
+    # UTC cron (local schedule: {schedule_comment})
+    - cron: "{cron}"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Render only — do not send email"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+
+jobs:
+  run-digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run digest {digest_id}
+        run: >-
+          python -m src.main
+          --digest "{digest_id}"
+          ${{{{ inputs.dry_run == 'true' && '--dry-run' || '' }}}}
+        env:
+          RESEND_API_KEY: ${{{{ secrets.RESEND_API_KEY }}}}
+          DIGEST_FROM_EMAIL: ${{{{ secrets.DIGEST_FROM_EMAIL }}}}
+          DIGEST_TO_EMAIL: ${{{{ secrets.DIGEST_TO_EMAIL }}}}
+"""
+
+
+def _schedule_comment(schedule: dict) -> str:
+    """Human-readable summary of the local schedule for the workflow comment."""
+    tz = schedule.get("timezone", "UTC")
+    h = int(schedule.get("hour", 0))
+    m = int(schedule.get("minute", 0))
+    stype = schedule.get("type", "weekly")
+    if stype == "weekly":
+        day = schedule.get("day_of_week", "?").capitalize()
+        return f"{day} {h:02d}:{m:02d} {tz}"
+    if stype == "daily":
+        return f"daily {h:02d}:{m:02d} {tz}"
+    return f"{stype} {h:02d}:{m:02d} {tz}"
+
+
+def build_workflow(cfg: dict) -> str:
+    """Return the full workflow YAML string for a digest config."""
+    digest_id: str = cfg["id"]
+    schedule: dict = cfg.get("schedule", {})
+    cron = schedule_to_cron(schedule)
+    display_name = cfg.get("email", {}).get("subject", digest_id)
+    comment = _schedule_comment(schedule)
+    return _WORKFLOW_TEMPLATE.format(
+        display_name=display_name,
+        digest_id=digest_id,
+        cron=cron,
+        schedule_comment=comment,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
+
+def load_digest_configs() -> list[dict]:
+    configs = []
+    for path in sorted(DIGESTS_DIR.glob("*.yaml")):
+        with open(path, encoding="utf-8") as f:
+            cfg = yaml.safe_load(f)
+        configs.append(cfg)
+    return configs
+
+
+def generate_all(dry_run_flag: bool = False, check: bool = False) -> int:
+    """
+    Generate workflow files for all enabled digests.
+
+    Returns the number of files written (or that *would* be written in check mode).
+    """
+    WORKFLOWS_DIR.mkdir(parents=True, exist_ok=True)
+    configs = load_digest_configs()
+    if not configs:
+        print("No digest YAML files found in digests/.")
+        return 0
+
+    changed = 0
+    errors = 0
+    for cfg in configs:
+        digest_id = cfg.get("id", "")
+        if not digest_id:
+            print(f"[SKIP] digest missing 'id' field — skipping.")
+            continue
+
+        enabled = cfg.get("enabled", True)
+        target = WORKFLOWS_DIR / f"digest-{digest_id}.yml"
+
+        if not enabled:
+            # Remove stale workflow if digest is disabled
+            if target.exists():
+                if dry_run_flag:
+                    print(f"[DRY-RUN] would remove {target.name} (digest disabled)")
+                elif check:
+                    print(f"[CHECK] {target.name} should be removed (digest disabled)")
+                    changed += 1
+                else:
+                    target.unlink()
+                    print(f"[REMOVED] {target.name} (digest disabled)")
+                    changed += 1
+            continue
+
+        try:
+            content = build_workflow(cfg)
+        except ValueError as exc:
+            print(f"[ERROR] {digest_id}: {exc}")
+            errors += 1
+            continue
+
+        if dry_run_flag:
+            print(f"# {'='*60}")
+            print(f"# Would write: {target.relative_to(PROJECT_ROOT)}")
+            print(f"# {'='*60}")
+            print(content)
+            changed += 1
+            continue
+
+        existing = target.read_text(encoding="utf-8") if target.exists() else None
+        if existing == content:
+            print(f"[OK]  {target.name} (unchanged)")
+        else:
+            if check:
+                print(f"[CHECK] {target.name} needs update")
+                changed += 1
+            else:
+                target.write_text(content, encoding="utf-8")
+                print(f"[WRITE] {target.name}")
+                changed += 1
+
+    if errors:
+        print(f"\n{errors} error(s) encountered.")
+        return -errors
+
+    if check:
+        if changed:
+            print(f"\n{changed} workflow(s) need updating. Run: python scripts/generate_workflows.py")
+        else:
+            print("All workflows are up to date.")
+    elif not dry_run_flag:
+        print(f"\nDone. {changed} workflow(s) written.")
+
+    return changed
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[1].strip())
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Validate only — exit 1 if any workflow needs updating",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        dest="dry_run",
+        help="Print generated workflows to stdout without writing files",
+    )
+    args = parser.parse_args()
+
+    result = generate_all(dry_run_flag=args.dry_run, check=args.check)
+
+    if args.check and result > 0:
+        sys.exit(1)
+    if result < 0:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

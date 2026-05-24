@@ -283,6 +283,154 @@ def test_dry_run_e2e():
 
 
 # ---------------------------------------------------------------------------
+# Test 8: schedule_to_cron conversion
+# ---------------------------------------------------------------------------
+
+def test_schedule_to_cron():
+    """
+    Verify that schedule_to_cron produces correct UTC cron strings for
+    representative weekly and daily schedules across timezone offsets.
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "generate_workflows",
+        PROJECT_ROOT / "scripts" / "generate_workflows.py",
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    schedule_to_cron = mod.schedule_to_cron
+
+    # --- weekly cases ---
+
+    # UTC — no shift
+    cron = schedule_to_cron({"type": "weekly", "day_of_week": "monday",
+                              "hour": 9, "minute": 0, "timezone": "UTC"})
+    assert cron == "0 9 * * 1", f"UTC Monday 09:00 -> expected '0 9 * * 1', got {cron!r}"
+
+    # America/Toronto (EST = UTC-5): Sunday 10:00 local → Sunday 15:00 UTC (cron dow 0)
+    cron = schedule_to_cron({"type": "weekly", "day_of_week": "sunday",
+                              "hour": 10, "minute": 0, "timezone": "America/Toronto"})
+    assert cron == "0 15 * * 0", f"Toronto Sunday 10:00 -> expected '0 15 * * 0', got {cron!r}"
+
+    # America/Toronto (EST = UTC-5): Friday 18:00 local → Friday 23:00 UTC (cron dow 5)
+    cron = schedule_to_cron({"type": "weekly", "day_of_week": "friday",
+                              "hour": 18, "minute": 0, "timezone": "America/Toronto"})
+    assert cron == "0 23 * * 5", f"Toronto Friday 18:00 -> expected '0 23 * * 5', got {cron!r}"
+
+    # Day-rollover forward: Saturday 23:00 UTC+2 (e.g. Europe/Paris standard)
+    # 23:00+02:00 = 21:00 UTC, same day
+    cron = schedule_to_cron({"type": "weekly", "day_of_week": "saturday",
+                              "hour": 23, "minute": 0, "timezone": "Europe/Paris"})
+    assert cron == "0 22 * * 6", f"Paris Saturday 23:00 -> expected '0 22 * * 6', got {cron!r}"
+
+    # Day-rollover backward: Sunday 01:00 UTC-5 → Saturday 06:00 UTC becomes Sunday... let's
+    # use a clear case: Sunday 01:00 America/Toronto (UTC-5) = Sunday 06:00 UTC
+    cron = schedule_to_cron({"type": "weekly", "day_of_week": "sunday",
+                              "hour": 1, "minute": 30, "timezone": "America/Toronto"})
+    assert cron == "30 6 * * 0", f"Toronto Sunday 01:30 -> expected '30 6 * * 0', got {cron!r}"
+
+    # Day-rollover backward across midnight: Saturday 22:00 UTC-5 = Sunday 03:00 UTC
+    cron = schedule_to_cron({"type": "weekly", "day_of_week": "saturday",
+                              "hour": 22, "minute": 15, "timezone": "America/Toronto"})
+    assert cron == "15 3 * * 0", f"Toronto Saturday 22:15 -> expected '15 3 * * 0', got {cron!r}"
+
+    # --- daily cases ---
+    cron = schedule_to_cron({"type": "daily", "hour": 8, "minute": 30,
+                              "timezone": "America/Toronto"})
+    assert cron == "30 13 * * *", f"Toronto daily 08:30 -> expected '30 13 * * *', got {cron!r}"
+
+    cron = schedule_to_cron({"type": "daily", "hour": 0, "minute": 0,
+                              "timezone": "UTC"})
+    assert cron == "0 0 * * *", f"UTC daily 00:00 -> expected '0 0 * * *', got {cron!r}"
+
+    print("  [PASS] schedule_to_cron (UTC conversion, weekly + daily)")
+
+
+# ---------------------------------------------------------------------------
+# Test 9: workflow generation for sample digest YAMLs
+# ---------------------------------------------------------------------------
+
+def test_workflow_generation():
+    """
+    Run generate_workflows.generate_all in dry-run mode against the real
+    digests directory and verify:
+      - a workflow is generated for each enabled digest
+      - each generated workflow is valid YAML
+      - the workflow contains the expected digest id
+      - the workflow contains a properly quoted cron string
+    """
+    import importlib.util
+    import io
+    import re
+    import yaml as pyyaml
+    from contextlib import redirect_stdout
+
+    spec = importlib.util.spec_from_file_location(
+        "generate_workflows",
+        PROJECT_ROOT / "scripts" / "generate_workflows.py",
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    from src.main import load_configs
+    enabled_ids = [c["id"] for c in load_configs() if c.get("enabled", True)]
+    assert enabled_ids, "Expected at least one enabled digest config"
+
+    for cfg in (c for c in load_configs() if c.get("enabled", True)):
+        digest_id = cfg["id"]
+        # Build workflow string directly
+        content = mod.build_workflow(cfg)
+
+        # Must be parseable YAML
+        try:
+            doc = pyyaml.safe_load(content)
+        except pyyaml.YAMLError as exc:
+            raise AssertionError(f"Generated workflow for {digest_id!r} is not valid YAML: {exc}")
+        assert doc is not None, f"Generated workflow for {digest_id!r} parsed as None"
+
+        # Must contain the digest id
+        assert digest_id in content, \
+            f"Digest id {digest_id!r} not found in generated workflow"
+
+        # Must contain a cron string (quoted, 5 fields)
+        cron_pattern = re.compile(r'cron:\s*["\']([\d\*/]+ [\d\*/]+ [\d\*/]+ [\d\*/]+ [\d\*/]+)["\']')
+        match = cron_pattern.search(content)
+        assert match, f"No valid quoted cron found in workflow for {digest_id!r}\n{content}"
+        cron_str = match.group(1)
+        parts = cron_str.split()
+        assert len(parts) == 5, \
+            f"Cron string {cron_str!r} for {digest_id!r} does not have 5 fields"
+
+        # Must contain workflow_dispatch with dry_run input
+        assert "workflow_dispatch" in content, \
+            f"workflow_dispatch missing from {digest_id!r} workflow"
+        assert "dry_run" in content, \
+            f"dry_run input missing from {digest_id!r} workflow"
+
+        print(f"    [OK] {digest_id}: cron={cron_str!r}")
+
+    # Also verify generate_all writes files to a temp dir
+    import tempfile
+    orig_workflows_dir = mod.WORKFLOWS_DIR
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            mod.WORKFLOWS_DIR = Path(tmpdir)
+            count = mod.generate_all(dry_run_flag=False, check=False)
+            assert count == len(enabled_ids), \
+                f"Expected {len(enabled_ids)} workflow(s), generate_all reported {count}"
+            written = list(Path(tmpdir).glob("digest-*.yml"))
+            assert len(written) == len(enabled_ids), \
+                f"Expected {len(enabled_ids)} file(s), found {len(written)}"
+            for wf in written:
+                doc = pyyaml.safe_load(wf.read_text(encoding="utf-8"))
+                assert doc is not None
+    finally:
+        mod.WORKFLOWS_DIR = orig_workflows_dir
+
+    print("  [PASS] workflow generation (all enabled digests, valid YAML, correct cron format)")
+
+
+# ---------------------------------------------------------------------------
 # Runner
 # ---------------------------------------------------------------------------
 
@@ -294,6 +442,8 @@ TESTS = [
     test_planner,
     test_load_configs,
     test_dry_run_e2e,
+    test_schedule_to_cron,
+    test_workflow_generation,
 ]
 
 

@@ -1,48 +1,22 @@
-name: Digests
+# This workflow is intentionally disabled.
+#
+# Automatic scheduling has moved to per-digest workflows.
+# Each digest now has its own .github/workflows/digest-<id>.yml file with
+# a dedicated cron schedule derived from the digest's YAML configuration.
+#
+# To regenerate or update all per-digest workflows, run:
+#   python scripts/generate_workflows.py
+#
+# For manual triggering of any digest, use:
+#   .github/workflows/manual.yml  (workflow_dispatch from the GitHub Actions UI)
+#
+# This file is kept as a placeholder so git history is preserved.
+# It defines no triggers and no jobs.
+name: "Digests (disabled — see digest-<id>.yml files)"
 
 on:
-  schedule:
-    - cron: '0 * * * *'
-  workflow_dispatch:
-    inputs:
-      digest_id:
-        description: 'Optional digest id to run'
-        required: false
-        type: string
-      dry_run:
-        description: 'Render only, do not send email'
-        required: false
-        default: false
-        type: boolean
-
-jobs:
-  run-digests:
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt
-
-      - name: Run due digests
-        if: ${{ github.event.inputs.digest_id == '' || github.event.inputs.digest_id == null }}
-        run: python -m src.main --due ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
-        env:
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          DIGEST_FROM_EMAIL: ${{ secrets.DIGEST_FROM_EMAIL }}
-          DIGEST_TO_EMAIL: ${{ secrets.DIGEST_TO_EMAIL }}
-
-      - name: Run one digest
-        if: ${{ github.event.inputs.digest_id != '' && github.event.inputs.digest_id != null }}
-        run: python -m src.main --digest "${{ github.event.inputs.digest_id }}" ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
-        env:
-          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          DIGEST_FROM_EMAIL: ${{ secrets.DIGEST_FROM_EMAIL }}
-          DIGEST_TO_EMAIL: ${{ secrets.DIGEST_TO_EMAIL }}
+  # No triggers — this workflow does nothing.
+  # Uncomment workflow_dispatch below only if you want to re-enable a single
+  # catch-all manual trigger (the manual.yml workflow is preferred instead).
+  #
+  # workflow_dispatch: {}
