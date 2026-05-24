@@ -167,6 +167,79 @@ def test_pipeline():
 
 
 # ---------------------------------------------------------------------------
+# Test 3b: pipeline keyword_weights
+# ---------------------------------------------------------------------------
+
+def test_pipeline_keyword_weights():
+    """keyword_weights in scoring should add extra weight for matched terms,
+    and digests without keyword_weights should retain existing behavior."""
+    from src.models import ContentItem
+    from src.pipeline import filter_and_score
+
+    base = _make_config("kw-weights-test")
+    base["filters"]["include_keywords"] = ["gm", "canada", "oshawa"]
+    base["filters"]["require_any_keywords"] = True
+    base["filters"]["max_items"] = 5
+    base["scoring"] = {
+        "keyword_hit": 1,
+        "title_keyword_hit": 1,
+        "recency_boost_days": 0,
+        "recency_boost_score": 0,
+        "keyword_weights": {"canada": 5, "oshawa": 6},
+    }
+
+    now = datetime.now(timezone.utc)
+    canada_item = ContentItem(
+        digest_id="kw-weights-test",
+        source_type="webpage",
+        source_url="https://x.com",
+        title="GM Canada news",
+        url="https://x.com/a/1",
+        summary="big update in Oshawa plant",
+        published_at=now - timedelta(hours=1),
+    )
+    plain_item = ContentItem(
+        digest_id="kw-weights-test",
+        source_type="webpage",
+        source_url="https://x.com",
+        title="GM general news",
+        url="https://x.com/a/2",
+        summary="generic update",
+        published_at=now - timedelta(hours=1),
+    )
+
+    with patch("src.pipeline.has_sent", return_value=False):
+        selected = filter_and_score(base, [plain_item, canada_item])
+
+    assert selected[0].url == "https://x.com/a/1", "Canada-weighted item should rank first"
+    assert selected[0].score > selected[1].score, "Weighted item should outscore plain item"
+
+    # Without keyword_weights, scoring should not include those bonuses
+    no_weights = _make_config("kw-no-weights")
+    no_weights["filters"]["include_keywords"] = ["gm", "canada", "oshawa"]
+    no_weights["scoring"] = {
+        "keyword_hit": 1,
+        "title_keyword_hit": 1,
+        "recency_boost_days": 0,
+        "recency_boost_score": 0,
+    }
+    a = ContentItem(
+        digest_id="kw-no-weights",
+        source_type="webpage",
+        source_url="https://x.com",
+        title="GM Canada Oshawa",
+        url="https://x.com/a/3",
+        summary="",
+        published_at=now - timedelta(hours=1),
+    )
+    with patch("src.pipeline.has_sent", return_value=False):
+        out = filter_and_score(no_weights, [a])
+    # 3 matched include_keywords (each counted by keyword_hit + title_keyword_hit = 1+1)
+    assert out[0].score == 6, f"Expected score 6 without weights, got {out[0].score}"
+    print("  [PASS] pipeline.keyword_weights (weighted + unweighted behavior)")
+
+
+# ---------------------------------------------------------------------------
 # Test 4: renderer
 # ---------------------------------------------------------------------------
 
@@ -230,10 +303,11 @@ def test_planner():
 def test_load_configs():
     from src.main import load_configs
     configs = load_configs()
-    assert len(configs) >= 2, f"Expected at least 2 digest configs, got {len(configs)}"
+    assert len(configs) >= 3, f"Expected at least 3 digest configs, got {len(configs)}"
     ids = [c["id"] for c in configs]
     assert "vscode-weekly" in ids
     assert "ai-tools-weekly" in ids
+    assert "general-motors-weekly" in ids
     print("  [PASS] main.load_configs (found: {})".format(", ".join(ids)))
 
 
@@ -484,6 +558,7 @@ TESTS = [
     test_content_item,
     test_store,
     test_pipeline,
+    test_pipeline_keyword_weights,
     test_renderer,
     test_planner,
     test_load_configs,

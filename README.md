@@ -22,11 +22,11 @@ automatically by `scripts/generate_workflows.py`.
 digest-engine/
 ├─ .github/workflows/
 │  ├─ digest-<id>.yml      # per-digest workflow (auto-generated — do not edit)
-│  ├─ manual.yml           # manual trigger for any digest by id
-│  └─ digests.yml          # legacy placeholder (disabled, no triggers)
+│  └─ manual.yml           # manual trigger for any digest by id
 ├─ digests/                # one digest per YAML file
 │  ├─ vscode-weekly.yaml
-│  └─ ai-tools-weekly.yaml
+│  ├─ ai-tools-weekly.yaml
+│  └─ general-motors-weekly.yaml
 ├─ scripts/
 │  └─ generate_workflows.py  # reads digests/*.yaml → writes .github/workflows/digest-<id>.yml
 ├─ src/                    # planner, fetching, filtering, rendering, email, state
@@ -304,12 +304,43 @@ The generator converts these fields to a UTC cron string. For example:
 
 ---
 
+## Built-in digests
+
+| Digest id | Schedule (local) | Focus |
+|-----------|------------------|-------|
+| `vscode-weekly` | Mon 05:00 America/Toronto | VS Code updates, Copilot, productivity |
+| `ai-tools-weekly` | Mon 05:00 America/Toronto | Claude, Perplexity, Copilot, OpenAI, HuggingFace |
+| `general-motors-weekly` | Mon 05:00 America/Toronto | General Motors news, weighted toward GM Canada / Ontario |
+
+---
+
 ## Adding a new digest
 
 1. Copy any existing file in `digests/`, change `id`, `schedule`, `sources`,
    `filters`, and `email.subject`.
 2. Re-run `python scripts/generate_workflows.py`.
 3. Commit and push — the new workflow is live immediately.
+
+> **Re-run the generator after any schedule or source change.** Even though
+> source updates do not affect cron, running `python scripts/generate_workflows.py`
+> after editing any digest YAML is the simplest way to keep `.github/workflows/`
+> in sync — `--check` will fail CI if drift is detected.
+
+## Optional: weighted keywords
+
+Digests can boost certain terms by adding a `keyword_weights` map under
+`scoring:`. Matching the term in either the title or summary adds the given
+weight. Digests that omit `keyword_weights` keep the original scoring behavior.
+
+```yaml
+scoring:
+  keyword_hit: 2
+  title_keyword_hit: 4
+  keyword_weights:
+    canada: 5
+    oshawa: 6
+    ontario: 5
+```
 
 ---
 

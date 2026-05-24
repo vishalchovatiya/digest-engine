@@ -10,8 +10,8 @@ name: "Digest: VS Code Weekly Digest"
 
 on:
   schedule:
-    # UTC cron (local schedule: Friday 18:00 America/Toronto)
-    - cron: "0 23 * * 5"
+    # UTC cron (local schedule: Monday 05:00 America/Toronto)
+    - cron: "0 10 * * 1"
   workflow_dispatch:
     inputs:
       dry_run:

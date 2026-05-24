@@ -1,0 +1,94 @@
+id: general-motors-weekly
+enabled: true
+schedule:
+  type: weekly
+  day_of_week: monday
+  hour: 5
+  minute: 0
+  timezone: America/Toronto
+
+email:
+  subject: General Motors Weekly Digest
+  to: []
+
+sources:
+  - type: webpage
+    url: https://news.gm.com/home.html
+  - type: webpage
+    url: https://www.gm.ca/en/home/company/operations.html
+  - type: webpage
+    url: https://www.newswire.ca/news/general-motors-of-canada-limited/
+  - type: rss
+    url: https://www.reddit.com/r/GeneralMotors/.rss
+
+filters:
+  include_keywords:
+    - gm
+    - general motors
+    - chevrolet
+    - cadillac
+    - buick
+    - gmc
+    - brightdrop
+    - cruise
+    - ultium
+    - ev
+    - battery
+    - software
+    - autonomous
+    - oshawa
+    - markham
+    - ingersoll
+    - ontario
+    - canada
+    - cami
+    - manufacturing
+    - plant
+    - jobs
+    - vehicle
+    - recall
+    - launch
+  exclude_keywords:
+    - investor
+    - investors
+    - shareholder
+    - stock
+    - dividend
+    - earnings
+    - quarterly results
+    - financial results
+    - sec
+    - conference
+    - webcast
+    - presentation
+    - analyst
+    - price target
+    - market cap
+    - prnewswire
+    - press release
+    - sponsored
+    - advertisement
+    - rumor
+    - meme
+  freshness_days: 14
+  require_any_keywords: true
+  max_items: 8
+
+scoring:
+  keyword_hit: 2
+  title_keyword_hit: 4
+  recency_boost_days: 7
+  recency_boost_score: 2
+  keyword_weights:
+    canada: 5
+    canadian: 5
+    ontario: 5
+    oshawa: 6
+    markham: 5
+    ingersoll: 5
+    cami: 5
+    brightdrop: 4
+    gm canada: 6
+
+render:
+  intro: Weekly GM updates with extra priority for Canada/Ontario operations and engineering-relevant news.

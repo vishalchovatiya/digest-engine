@@ -6,7 +6,7 @@
 # standard-time UTC offset.  During daylight saving time (DST) this workflow
 # will fire one hour early in wall-clock time — a known GitHub Actions cron
 # limitation (no DST support).
-name: "Digest: Perplexity, Claude & GitHub Copilot Weekly Digest"
+name: "Digest: General Motors Weekly Digest"
 
 on:
   schedule:
@@ -39,10 +39,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Run digest ai-tools-weekly
+      - name: Run digest general-motors-weekly
         run: >-
           python -m src.main
-          --digest "ai-tools-weekly"
+          --digest "general-motors-weekly"
           ${{ inputs.dry_run == 'true' && '--dry-run' || '' }}
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}

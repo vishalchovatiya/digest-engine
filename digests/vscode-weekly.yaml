@@ -2,8 +2,8 @@ id: vscode-weekly
 enabled: true
 schedule:
   type: weekly
-  day_of_week: friday
-  hour: 18
+  day_of_week: monday
+  hour: 5
   minute: 0
   timezone: America/Toronto
 
@@ -16,6 +16,10 @@ sources:
     url: https://code.visualstudio.com/updates
   - type: webpage
     url: https://github.blog/changelog/
+  - type: webpage
+    url: https://github.blog/changelog/label/copilot/
+  - type: rss
+    url: https://devblogs.microsoft.com/visualstudio/feed/
 
 filters:
   include_keywords:
@@ -27,6 +31,7 @@ filters:
     - terminal
     - productivity
     - workflow
+    - shortcuts
   exclude_keywords:
     - pricing
     - legal

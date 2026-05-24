@@ -2,8 +2,8 @@ id: ai-tools-weekly
 enabled: true
 schedule:
   type: weekly
-  day_of_week: sunday
-  hour: 10
+  day_of_week: monday
+  hour: 5
   minute: 0
   timezone: America/Toronto
 
@@ -15,9 +15,15 @@ sources:
   - type: webpage
     url: https://www.perplexity.ai/hub/blog
   - type: webpage
-    url: https://github.blog/changelog/label/copilot/
-  - type: webpage
     url: https://www.anthropic.com/news
+  - type: webpage
+    url: https://github.blog/changelog/label/copilot/
+  - type: rss
+    url: https://openai.com/news/rss.xml
+  - type: rss
+    url: https://huggingface.co/blog/feed.xml
+  - type: rss
+    url: https://blog.google/technology/ai/rss/
 
 filters:
   include_keywords:
@@ -26,6 +32,7 @@ filters:
     - copilot
     - ai
     - agent
+    - assistant
     - workflow
     - productivity
     - code

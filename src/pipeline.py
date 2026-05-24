@@ -32,6 +32,11 @@ def filter_and_score(config: dict, items: list[ContentItem]) -> list[ContentItem
         score += len(matched) * scoring.get('keyword_hit', 1)
         title_l = item.title.lower()
         score += sum(1 for k in include_keywords if k in title_l) * scoring.get('title_keyword_hit', 2)
+        keyword_weights = scoring.get('keyword_weights') or {}
+        if keyword_weights:
+            for term, weight in keyword_weights.items():
+                if term.lower() in hay:
+                    score += int(weight)
         if item.published_at:
             recency_days = scoring.get('recency_boost_days', 7)
             if item.published_at >= datetime.now(timezone.utc) - timedelta(days=recency_days):
