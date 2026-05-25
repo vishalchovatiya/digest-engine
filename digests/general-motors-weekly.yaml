@@ -20,6 +20,9 @@ sources:
     url: https://www.newswire.ca/news/general-motors-of-canada-limited/
   - type: rss
     url: https://www.reddit.com/r/GeneralMotors/.rss
+  - type: rss
+    url: https://www.reddit.com/r/GMemployees/.rss
+
 
 filters:
   include_keywords:
