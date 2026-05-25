@@ -19,6 +19,28 @@ from .price_tracker import (
 )
 
 
+def _send_credentials_available() -> bool:
+    """True only when both RESEND_API_KEY and DIGEST_FROM_EMAIL are non-empty."""
+    return bool((os.environ.get('RESEND_API_KEY') or '').strip()) and \
+        bool((os.environ.get('DIGEST_FROM_EMAIL') or '').strip())
+
+
+def _effective_dry_run(dry_run: bool) -> bool:
+    """Return True if we should skip the live send.
+
+    Honours the explicit --dry-run flag, and also auto-degrades to dry-run
+    when send credentials are missing so scheduled runs render the HTML
+    artifact rather than failing the Actions job.
+    """
+    if dry_run:
+        return True
+    if not _send_credentials_available():
+        print("[WARN] RESEND_API_KEY or DIGEST_FROM_EMAIL is empty — "
+              "auto-degrading to dry-run (HTML rendered, no email sent).")
+        return True
+    return False
+
+
 def load_configs() -> list[dict]:
     configs = []
     digests_dir = Path(__file__).resolve().parent.parent / 'digests'
@@ -70,6 +92,7 @@ def _fetch_with_health(digest_id: str, source: dict) -> list:
 
 
 def run_price_watch_digest(config: dict, dry_run: bool) -> None:
+    dry_run = _effective_dry_run(dry_run)
     observations = run_price_watch(config)
     notable = notable_observations(observations)
     items_for_email = observations_to_items(notable) if notable else observations_to_items(observations)
@@ -108,6 +131,7 @@ def run_digest(config: dict, dry_run: bool) -> None:
         run_price_watch_digest(config, dry_run)
         return
 
+    dry_run = _effective_dry_run(dry_run)
     items = []
     for source in config.get('sources', []):
         items.extend(_fetch_with_health(config['id'], source))
