@@ -42,33 +42,35 @@ profile_notes:
     schemes.
 
 sources:
-  # Federal / IRCC
+  # Federal / IRCC — change-driven pages only (draw results, rounds table, news feed).
+  # Static how-to/instructional pages are intentionally excluded so the digest
+  # surfaces draws, rule changes, and announcements rather than evergreen guides.
   - type: webpage
     url: https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations.html
   - type: webpage
     url: https://www.canada.ca/en/immigration-refugees-citizenship/corporate/mandate/policies-operational-instructions-agreements/ministerial-instructions/express-entry-rounds.html
-  - type: webpage
-    url: https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations/category-based-selection.html
   - type: rss
     url: https://www.canada.ca/en/immigration-refugees-citizenship/news.rss
-  - type: webpage
-    url: https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/provincial-nominees.html
-  # Ontario / OINP
+  # Ontario / OINP — updates feed, invitation rounds, and Express Entry NOIs
+  # (the three OINP pages that change with each draw/announcement). The generic
+  # OINP landing page and the federal provincial-nominees hub are dropped because
+  # they are evergreen overview pages.
   - type: webpage
     url: https://www.ontario.ca/page/2026-ontario-immigrant-nominee-program-updates
   - type: webpage
     url: https://www.ontario.ca/page/ontario-immigrant-nominee-program-oinp-invitations-apply
   - type: webpage
     url: https://www.ontario.ca/page/oinp-express-entry-notifications-interest
-  - type: webpage
-    url: https://www.ontario.ca/page/ontario-immigrant-nominee-program-oinp
-  # Reddit
+  # Reddit — community discussion of draws, NOIs, and rule changes. Weighted on
+  # par with official sources per user request.
   - type: rss
     url: https://www.reddit.com/r/ImmigrationCanada/.rss
   - type: rss
     url: https://www.reddit.com/r/OINP/.rss
   - type: rss
     url: https://www.reddit.com/r/canadaexpressentry/.rss
+  - type: rss
+    url: https://www.reddit.com/r/CanadaImmigrationFAQs/.rss
 
 filters:
   include_keywords:
@@ -163,7 +165,38 @@ filters:
     - NOC 21231
     - NOC 21232
     - TEER 1
-    # High-impact change terms
+    # High-impact change / news terms — these drive the "is this an update?" signal
+    - new
+    - newly
+    - updated
+    - update
+    - changed
+    - change
+    - announced
+    - announcement
+    - launch
+    - launches
+    - introduces
+    - cutoff
+    - cut-off
+    - score required
+    - lowest CRS
+    - minimum CRS
+    - invitation
+    - invitations issued
+    - issued invitations
+    - paused
+    - resumed
+    - reopened
+    - closed
+    - suspended
+    - amendment
+    - amended
+    - effective date
+    - effective immediately
+    - comes into force
+    - in effect
+    - as of
     - permanent residence
     - permanent residency
     - PR
@@ -328,25 +361,84 @@ scoring:
     study permit refusal: 6
     spouse sponsorship: 6
     family sponsorship: 6
-  # Official IRCC and Ontario sources outrank Reddit.
+    # Evergreen / instructional "how-to" language — penalized so static
+    # application-process content is demoted in favour of draws, rule changes,
+    # and news. These fire on the link text scraped from official pages.
+    how to apply: 9
+    steps to apply: 9
+    how to immigrate: 8
+    create a profile: 8
+    create an account: 7
+    create your profile: 8
+    complete your profile: 8
+    fill out your profile: 7
+    submit your profile: 6
+    documents for your application: 8
+    document checklist: 7
+    before you apply: 8
+    after you apply: 8
+    after you submit: 7
+    get started: 7
+    sign in: 7
+    log in: 6
+    check your eligibility: 7
+    find out if you are eligible: 7
+    see if you qualify: 7
+    am i eligible: 6
+    application package: 7
+    instruction guide: 9
+    guide to: 6
+    step-by-step: 8
+    step by step: 8
+    pay your fees: 7
+    fees: 4
+    forms: 4
+    how-to: 6
+    instructions for applying: 9
+    instructions for: 6
+    immigrate through: 6
+    learn how: 7
+    learn about: 6
+    overview: 5
+    about the program: 7
+    eligibility requirements: 6
+    who can apply: 7
+    ways to apply: 7
+    reports and publications: 6
+    expression of interest system: 5
+    # Year-archive navigation links on the OINP updates page are historical, not new.
+    2009-2014: 12
+    2015 program updates: 10
+    2016 program updates: 10
+    2017 program updates: 10
+    2018 program updates: 10
+    2019 program updates: 10
+    2020 program updates: 10
+    2021 program updates: 10
+    2022 program updates: 10
+    2023 program updates: 10
+    2024 program updates: 8
+  # Official change-driven pages and Reddit community discussion are weighted
+  # comparably. Reddit is given parity with official sources per user request;
+  # the IRCC draw/rounds tables and OINP feeds keep a slight edge because they
+  # are authoritative for the actual numbers, but they no longer dominate.
   source_weights:
-    https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations.html: 20
-    https://www.canada.ca/en/immigration-refugees-citizenship/corporate/mandate/policies-operational-instructions-agreements/ministerial-instructions/express-entry-rounds.html: 20
-    https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations/category-based-selection.html: 18
-    https://www.canada.ca/en/immigration-refugees-citizenship/news.rss: 16
-    https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/provincial-nominees.html: 14
-    https://www.ontario.ca/page/2026-ontario-immigrant-nominee-program-updates: 18
-    https://www.ontario.ca/page/ontario-immigrant-nominee-program-oinp-invitations-apply: 17
-    https://www.ontario.ca/page/oinp-express-entry-notifications-interest: 17
-    https://www.ontario.ca/page/ontario-immigrant-nominee-program-oinp: 14
-    https://www.reddit.com/r/ImmigrationCanada/.rss: 4
-    https://www.reddit.com/r/OINP/.rss: 5
-    https://www.reddit.com/r/canadaexpressentry/.rss: 5
+    https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations.html: 10
+    https://www.canada.ca/en/immigration-refugees-citizenship/corporate/mandate/policies-operational-instructions-agreements/ministerial-instructions/express-entry-rounds.html: 10
+    https://www.canada.ca/en/immigration-refugees-citizenship/news.rss: 9
+    https://www.ontario.ca/page/2026-ontario-immigrant-nominee-program-updates: 10
+    https://www.ontario.ca/page/ontario-immigrant-nominee-program-oinp-invitations-apply: 9
+    https://www.ontario.ca/page/oinp-express-entry-notifications-interest: 9
+    https://www.reddit.com/r/ImmigrationCanada/.rss: 8
+    https://www.reddit.com/r/OINP/.rss: 9
+    https://www.reddit.com/r/canadaexpressentry/.rss: 9
+    https://www.reddit.com/r/CanadaImmigrationFAQs/.rss: 8
 
 render:
   intro: >-
     Weekly scan of Canadian Permanent Residency pathway updates across federal
     Express Entry and provincial/PNP routes, prioritized for an Ontario-based
     software/embedded automotive engineer at General Motors Canada with an
-    LMIA-supported job offer. Official IRCC and Ontario sources are weighted
-    above community discussion.
+    LMIA-supported job offer. Tuned toward draws, rule changes, and
+    announcements rather than evergreen how-to pages; official IRCC/Ontario
+    sources and Reddit community discussion are weighted comparably.
