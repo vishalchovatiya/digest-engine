@@ -1,0 +1,352 @@
+id: canada-pr-pathways-weekly
+enabled: true
+schedule:
+  type: weekly
+  day_of_week: monday
+  hour: 5
+  minute: 0
+  timezone: America/Toronto
+
+email:
+  subject: Canada PR Pathways Weekly Digest
+  to: []
+
+# Personalized weekly scan for Canadian Permanent Residency pathway updates.
+# Tracks BOTH federal Express Entry routes and provincial/PNP routes. The user is
+# applying through both federal and province-level schemes, so do not limit
+# updates only to OINP, LMIA, closed/sponsored work permit, or employer job-offer
+# pathways — federal and provincial PR options are tracked together.
+profile_notes:
+  current_role: Software/embedded automotive engineer
+  employer: General Motors Canada
+  location: Ontario, Canada
+  education: Master's degree
+  job_offer: LMIA-supported
+  experience:
+    total_years: 12
+    canadian_years: 1
+    foreign_years: 11
+  tracking_strategy:
+    - Federal Express Entry
+    - Canadian Experience Class (CEC)
+    - Federal Skilled Worker (FSW)
+    - CRS and category-based draws
+    - Provincial Nominee Programs (PNPs)
+    - Ontario Immigrant Nominee Program (OINP)
+    - LMIA / arranged employment / job-offer changes
+    - Software / STEM / engineering / tech occupation changes
+  note: >-
+    Do not limit updates only to OINP, LMIA, closed work permit, sponsored work
+    permit, or employer job-offer pathways. Track both federal and provincial PR
+    options because the user is applying through both federal and province-level
+    schemes.
+
+sources:
+  # Federal / IRCC
+  - type: webpage
+    url: https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations.html
+  - type: webpage
+    url: https://www.canada.ca/en/immigration-refugees-citizenship/corporate/mandate/policies-operational-instructions-agreements/ministerial-instructions/express-entry-rounds.html
+  - type: webpage
+    url: https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations/category-based-selection.html
+  - type: rss
+    url: https://www.canada.ca/en/immigration-refugees-citizenship/news.rss
+  - type: webpage
+    url: https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/provincial-nominees.html
+  # Ontario / OINP
+  - type: webpage
+    url: https://www.ontario.ca/page/2026-ontario-immigrant-nominee-program-updates
+  - type: webpage
+    url: https://www.ontario.ca/page/ontario-immigrant-nominee-program-oinp-invitations-apply
+  - type: webpage
+    url: https://www.ontario.ca/page/oinp-express-entry-notifications-interest
+  - type: webpage
+    url: https://www.ontario.ca/page/ontario-immigrant-nominee-program-oinp
+  # Reddit
+  - type: rss
+    url: https://www.reddit.com/r/ImmigrationCanada/.rss
+  - type: rss
+    url: https://www.reddit.com/r/OINP/.rss
+  - type: rss
+    url: https://www.reddit.com/r/canadaexpressentry/.rss
+
+filters:
+  include_keywords:
+    # Federal Express Entry
+    - Express Entry
+    - federal
+    - federal pathway
+    - federal program
+    - CEC
+    - Canadian Experience Class
+    - FSW
+    - Federal Skilled Worker
+    - CRS
+    - Comprehensive Ranking System
+    - CRS score
+    - CRS points
+    - ITA
+    - invitation to apply
+    - round of invitations
+    - draw
+    - category-based selection
+    - category-based draw
+    - tie-breaking rule
+    - settlement funds
+    - proof of funds
+    # PNP / provincial
+    - PNP
+    - Provincial Nominee Program
+    - provincial nominee
+    - provincial nomination
+    - nomination
+    - enhanced PNP
+    - base PNP
+    - non-Express Entry PNP
+    - province-level
+    - province level
+    - state-level
+    - state level
+    - Ontario PNP
+    - OINP
+    - Ontario Immigrant Nominee Program
+    - notification of interest
+    - NOI
+    - Human Capital Priorities
+    - HCP
+    - Employer Job Offer
+    - Foreign Worker stream
+    - International Student stream
+    - In-Demand Skills
+    - Skilled Trades stream
+    - French-Speaking Skilled Worker
+    - Expression of Interest
+    - EOI
+    # User profile
+    - LMIA
+    - Labour Market Impact Assessment
+    - LMIA-supported
+    - LMIA supported
+    - arranged employment
+    - valid job offer
+    - job offer
+    - employer job offer
+    - General Motors
+    - GM Canada
+    - Ontario employer
+    - work permit
+    - employer-specific work permit
+    - closed work permit
+    - sponsored work permit
+    - Canadian work experience
+    - 1 year Canadian experience
+    - skilled Canadian work experience
+    - foreign work experience
+    - foreign skilled work experience
+    - 11 years foreign experience
+    - 12 years experience
+    - master's degree
+    - education credential assessment
+    - ECA
+    - software engineer
+    - software engineering
+    - software engineers and designers
+    - embedded software
+    - embedded systems
+    - automotive software
+    - automotive engineer
+    - engineer
+    - engineering
+    - STEM
+    - tech draw
+    - technology occupation
+    - NOC 21231
+    - NOC 21232
+    - TEER 1
+    # High-impact change terms
+    - permanent residence
+    - permanent residency
+    - PR
+    - eligibility
+    - eligible
+    - ineligible
+    - rule change
+    - policy change
+    - program update
+    - regulatory amendment
+    - ministerial instructions
+    - occupation list
+    - priority occupation
+    - allocation
+    - quota
+    - cap
+    - processing time
+    - application deadline
+    - document requirement
+    - language requirement
+    - IELTS
+    - CELPIP
+    - TEF
+    - TCF
+    - French language
+    - Ontario
+    - GTA
+    - Toronto
+  exclude_keywords:
+    - meme
+    - joke
+    - rant
+    - vent
+    - drama
+    - scam
+    - fake consultant
+    - WhatsApp group
+    - Telegram group
+    - paid consultation
+    - referral
+    - affiliate
+    - sponsored
+    - advertisement
+    - YouTube reaction
+    - chance me
+    - what are my chances
+    - profile evaluation
+    - personal timeline
+    - ghost update
+    - portal 1
+    - portal 2
+    - copr timeline
+    - waiting since
+    - anyone else waiting
+    - visitor visa
+    - tourist visa
+    - super visa
+    - citizenship ceremony
+    - passport
+    - refugee
+    - asylum
+    - deportation
+    - removal order
+    - study permit refusal
+    - spouse sponsorship
+    - family sponsorship
+  freshness_days: 10
+  require_any_keywords: true
+  max_items: 14
+
+scoring:
+  keyword_hit: 2
+  title_keyword_hit: 4
+  recency_boost_days: 7
+  recency_boost_score: 2
+  keyword_weights:
+    # Federal Express Entry / CEC / CRS — highest priority
+    express entry: 10
+    cec: 10
+    canadian experience class: 10
+    fsw: 8
+    federal skilled worker: 8
+    crs: 9
+    comprehensive ranking system: 8
+    invitation to apply: 8
+    round of invitations: 9
+    category-based selection: 9
+    category-based draw: 9
+    draw: 6
+    # PNP / Ontario / OINP
+    pnp: 9
+    provincial nominee program: 9
+    provincial nominee: 8
+    oinp: 10
+    ontario immigrant nominee program: 10
+    notification of interest: 8
+    noi: 6
+    human capital priorities: 8
+    employer job offer: 7
+    expression of interest: 6
+    # LMIA / arranged employment
+    lmia: 9
+    labour market impact assessment: 8
+    arranged employment: 8
+    valid job offer: 7
+    job offer: 6
+    # Rule / program changes
+    rule change: 8
+    policy change: 8
+    program update: 7
+    ministerial instructions: 8
+    regulatory amendment: 7
+    occupation list: 7
+    priority occupation: 7
+    # User occupation profile
+    software engineer: 7
+    embedded software: 7
+    automotive software: 7
+    automotive engineer: 6
+    tech draw: 8
+    technology occupation: 7
+    noc 21231: 8
+    noc 21232: 8
+    stem: 6
+    # Geography
+    ontario: 5
+    toronto: 4
+    gta: 4
+    permanent residence: 6
+    permanent residency: 6
+  penalty_weights:
+    meme: 8
+    joke: 6
+    rant: 6
+    vent: 6
+    drama: 6
+    scam: 8
+    fake consultant: 10
+    whatsapp group: 8
+    telegram group: 8
+    paid consultation: 8
+    referral: 6
+    affiliate: 6
+    advertisement: 6
+    youtube reaction: 8
+    chance me: 8
+    what are my chances: 8
+    profile evaluation: 6
+    personal timeline: 6
+    ghost update: 6
+    copr timeline: 6
+    waiting since: 6
+    anyone else waiting: 6
+    visitor visa: 6
+    tourist visa: 6
+    super visa: 6
+    citizenship ceremony: 6
+    refugee: 6
+    asylum: 6
+    deportation: 6
+    removal order: 6
+    study permit refusal: 6
+    spouse sponsorship: 6
+    family sponsorship: 6
+  # Official IRCC and Ontario sources outrank Reddit.
+  source_weights:
+    https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations.html: 20
+    https://www.canada.ca/en/immigration-refugees-citizenship/corporate/mandate/policies-operational-instructions-agreements/ministerial-instructions/express-entry-rounds.html: 20
+    https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations/category-based-selection.html: 18
+    https://www.canada.ca/en/immigration-refugees-citizenship/news.rss: 16
+    https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/provincial-nominees.html: 14
+    https://www.ontario.ca/page/2026-ontario-immigrant-nominee-program-updates: 18
+    https://www.ontario.ca/page/ontario-immigrant-nominee-program-oinp-invitations-apply: 17
+    https://www.ontario.ca/page/oinp-express-entry-notifications-interest: 17
+    https://www.ontario.ca/page/ontario-immigrant-nominee-program-oinp: 14
+    https://www.reddit.com/r/ImmigrationCanada/.rss: 4
+    https://www.reddit.com/r/OINP/.rss: 5
+    https://www.reddit.com/r/canadaexpressentry/.rss: 5
+
+render:
+  intro: >-
+    Weekly scan of Canadian Permanent Residency pathway updates across federal
+    Express Entry and provincial/PNP routes, prioritized for an Ontario-based
+    software/embedded automotive engineer at General Motors Canada with an
+    LMIA-supported job offer. Official IRCC and Ontario sources are weighted
+    above community discussion.

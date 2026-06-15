@@ -106,14 +106,16 @@ def _validate_scoring(prefix: str, scoring: Any) -> list[str]:
                 "recency_boost_days", "recency_boost_score"):
         if fld in scoring and not isinstance(scoring[fld], int):
             errors.append(_err(prefix, f"scoring.{fld} must be int"))
-    kw = scoring.get("keyword_weights")
-    if kw is not None:
-        if not isinstance(kw, dict):
-            errors.append(_err(prefix, "scoring.keyword_weights must be a mapping of str -> int"))
-        else:
-            for k, v in kw.items():
-                if not isinstance(k, str) or not isinstance(v, int):
-                    errors.append(_err(prefix, f"scoring.keyword_weights['{k}'] must be int (got {type(v).__name__})"))
+    for wfld in ("keyword_weights", "penalty_weights", "source_weights"):
+        wmap = scoring.get(wfld)
+        if wmap is None:
+            continue
+        if not isinstance(wmap, dict):
+            errors.append(_err(prefix, f"scoring.{wfld} must be a mapping of str -> int"))
+            continue
+        for k, v in wmap.items():
+            if not isinstance(k, str) or not isinstance(v, int):
+                errors.append(_err(prefix, f"scoring.{wfld}['{k}'] must be int (got {type(v).__name__})"))
     return errors
 
 
@@ -168,6 +170,9 @@ def validate_config(cfg: Any) -> list[str]:
         to = email.get("to", [])
         if to is not None and not isinstance(to, list):
             errors.append(_err(prefix, "email.to must be a list (possibly empty)"))
+
+    if "profile_notes" in cfg and not isinstance(cfg["profile_notes"], dict):
+        errors.append(_err(prefix, "profile_notes must be a mapping"))
 
     dtype = cfg.get("type", "content")
     if dtype == "price_watch":

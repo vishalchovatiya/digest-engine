@@ -45,6 +45,9 @@ def filter_and_score(config: dict, items: list[ContentItem]) -> list[ContentItem
             for term, weight in penalty_weights.items():
                 if term.lower() in hay:
                     score -= int(weight)
+        source_weights = scoring.get('source_weights') or {}
+        if source_weights and item.source_url:
+            score += int(source_weights.get(item.source_url, 0))
         if item.published_at:
             recency_days = scoring.get('recency_boost_days', 7)
             if item.published_at >= datetime.now(timezone.utc) - timedelta(days=recency_days):
