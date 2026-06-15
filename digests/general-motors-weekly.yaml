@@ -35,9 +35,7 @@ filters:
     - brightdrop
     - cruise
     - ultium
-    - ev
     - battery
-    - software
     - autonomous
     - oshawa
     - markham
