@@ -134,14 +134,15 @@ def run_price_watch_digest(config: dict, dry_run: bool) -> None:
         return
 
     recipients = resolve_recipients(config)
-    if not recipients:
-        raise RuntimeError(f"No recipients configured for digest {config['id']}")
 
     if dry_run:
         print(f"[DRY RUN] would send {config['id']} to {recipients} "
               f"({len(notable)} notable obs)")
         mark_run(config['id'], True)
         return
+
+    if not recipients:
+        raise RuntimeError(f"No valid recipients configured for digest {config['id']}")
 
     send_email(config['email']['subject'], email_html, recipients)
     mark_run(config['id'], True)
@@ -186,13 +187,14 @@ def run_digest(config: dict, dry_run: bool) -> None:
         return
 
     recipients = resolve_recipients(config)
-    if not recipients:
-        raise RuntimeError(f"No recipients configured for digest {config['id']}")
 
     if dry_run:
         print(f"[DRY RUN] would send {config['id']} to {recipients}")
         mark_run(config['id'], True)
         return
+
+    if not recipients:
+        raise RuntimeError(f"No valid recipients configured for digest {config['id']}")
 
     send_email(config['email']['subject'], email_html, recipients)
     for item in selected:
