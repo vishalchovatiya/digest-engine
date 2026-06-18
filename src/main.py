@@ -1,6 +1,7 @@
 from __future__ import annotations
 import argparse
 import os
+import re
 import time
 from pathlib import Path
 import yaml
@@ -56,6 +57,21 @@ def load_configs() -> list[dict]:
     return configs
 
 
+# Resend accepts either "email@example.com" or "Name <email@example.com>".
+# Validate the bare address part of each recipient so a malformed entry in
+# DIGEST_TO_EMAILS (or a digest's email.to) is dropped with a warning rather
+# than reaching Resend and failing the whole job with a ValidationError.
+_EMAIL_RE = re.compile(r'^[^@\s]+@[^@\s]+\.[^@\s]+$')
+_NAMED_ADDR_RE = re.compile(r'^.*<\s*([^@\s<>]+@[^@\s<>]+\.[^@\s<>]+)\s*>$')
+
+
+def _is_valid_recipient(addr: str) -> bool:
+    if _EMAIL_RE.match(addr):
+        return True
+    m = _NAMED_ADDR_RE.match(addr)
+    return bool(m and _EMAIL_RE.match(m.group(1)))
+
+
 def resolve_recipients(config: dict) -> list[str]:
     recipients = list(config.get('email', {}).get('to', []) or [])
     env_value = os.getenv('DIGEST_TO_EMAILS', '')
@@ -70,7 +86,13 @@ def resolve_recipients(config: dict) -> list[str]:
         if r.lower() not in seen:
             seen.add(r.lower())
             deduped.append(r)
-    return deduped
+    valid = []
+    for r in deduped:
+        if _is_valid_recipient(r):
+            valid.append(r)
+        else:
+            print(f"[WARN] dropping malformed recipient address: {r!r}")
+    return valid
 
 
 def _fetch_with_health(digest_id: str, source: dict) -> list:

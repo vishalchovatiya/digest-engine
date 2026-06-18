@@ -547,7 +547,17 @@ def test_resolve_recipients():
         out = resolve_recipients({"email": {"to": ["x@example.com", "X@EXAMPLE.com"]}})
         assert out == ["x@example.com"], out
 
-    print("  [PASS] resolve_recipients (comma-separated DIGEST_TO_EMAILS + dedupe)")
+    # Malformed entries are dropped; valid ones (incl. "Name <addr>") are kept
+    with patch.dict(os.environ, {"DIGEST_TO_EMAILS": "good@example.com, not-an-email, also bad, Name <named@example.com>"}, clear=False):
+        out = resolve_recipients({"email": {"to": []}})
+        assert out == ["good@example.com", "Name <named@example.com>"], out
+
+    # All-malformed env yields no recipients (job fails cleanly instead of hitting Resend)
+    with patch.dict(os.environ, {"DIGEST_TO_EMAILS": "nope, still-nope"}, clear=False):
+        out = resolve_recipients({"email": {"to": []}})
+        assert out == [], out
+
+    print("  [PASS] resolve_recipients (comma-separated DIGEST_TO_EMAILS + dedupe + format validation)")
 
 
 # ---------------------------------------------------------------------------
